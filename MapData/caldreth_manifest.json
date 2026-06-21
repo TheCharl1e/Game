@@ -1,0 +1,68 @@
+{
+  "island": {
+    "use_name": "Caldreth",
+    "true_name": "Tharruan"
+  },
+  "grid_size": 512,
+  "sea_level": 0.2,
+  "wind": {
+    "from": "east",
+    "vector": [
+      -1,
+      0
+    ],
+    "note": "drives orographic rainfall: wet windward (E), dry leeward (W)"
+  },
+  "biome_legend": {
+    "0": "OCEAN",
+    "1": "BEACH",
+    "2": "SAVANNA",
+    "3": "DESERT",
+    "4": "GRASSLAND",
+    "5": "SLOPE_FOREST",
+    "6": "MOUNTAIN",
+    "7": "ASH_SLOPE",
+    "8": "CALDERA",
+    "9": "RIVER",
+    "10": "LAVA",
+    "11": "OASIS"
+  },
+  "points_of_interest": [
+    {
+      "name": "Caldera (Tharruan)",
+      "kind": "caldera",
+      "role": "FireGate_TrueName_L5",
+      "x": 0.54883,
+      "y": 0.5
+    },
+    {
+      "name": "Great Tree",
+      "kind": "tree",
+      "role": "PowerSite_Stability_L3",
+      "x": 0.68945,
+      "y": 0.44141
+    },
+    {
+      "name": "Obsidian Fields",
+      "kind": "obsidian",
+      "role": "PowerSite_Weapons_L4",
+      "x": 0.03125,
+      "y": 0.50781
+    },
+    {
+      "name": "The Grey Spring",
+      "kind": "grey",
+      "role": "Anomaly_GreyDrain",
+      "x": 0.17969,
+      "y": 0.67578
+    },
+    {
+      "name": "River Source",
+      "kind": "spring",
+      "role": "Resource_FreshWater_L1",
+      "x": 0.29688,
+      "y": 0.55859
+    }
+  ],
+  "grey_spring_note": "Anomaly. NPCs drinking here accrue a GreyDrain stat that erodes OCEAN-five individuality (preferences flatten, true-name fades). Hook for a hive/loss-of-self mechanic in the leeward savanna."
+}

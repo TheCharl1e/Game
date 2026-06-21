@@ -1,0 +1,40 @@
+# --- Unreal Engine generated / build artifacts ---
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+
+# --- Heavy / non-game (code+docs repo: zero binarnych assetów, zero dev-toolingu) ---
+Content/
+Plugins/
+
+# --- IDE / tooling ---
+*.sln
+.vs/
+*.VC.db
+.vsconfig
+
+# --- Logs / regenerable indexes ---
+*.log
+docs/index.bleve/
+_MCP_flopperam/
+
+# --- Local tooling config (osobiste ścieżki/username) ---
+.mcp.json
+
+# --- Regenerowalne wyjścia MapGen (zostają tylko inputy importera: biome.png + manifest.json) ---
+MapData/caldreth_data.npz
+MapData/caldreth_map.png
+Tools/MapGen/__pycache__/
+
+# --- Stray duplikaty w roocie (prawdziwe w Source/Stan_Pierwotny/) ---
+/InventoryComponent.h
+/InventoryComponent.cpp
+/CLAUDE2.md
+
+# --- OS ---
+Thumbs.db
+.DS_Store
+
+# --- Local-only ---
+.claude/settings.local.json
