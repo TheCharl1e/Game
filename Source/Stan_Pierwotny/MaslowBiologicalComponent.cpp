@@ -852,6 +852,38 @@ void UMaslowBiologicalComponent::StartEating(AActor* Food, const FFoodItemRow& M
         Meal.Volume, TotalBites, Meal.NutritionKcal, Meal.FatG, Meal.ProteinG, StomachFill, GetSatietySetpoint());
 }
 
+// APPETITE slice 1b — BP-facing wrapper. Resolves the item's row from FoodTable (brain owns the data
+// lookup) and starts the meal. Fail-safe: refuses (return false, NO StartEating) on invalid Food / null
+// table / missing row, each with a Warning. The eat task gates the montage on the return value so an
+// unresolved meal never leaves bIsEating=true hanging over a zero-volume session.
+bool UMaslowBiologicalComponent::StartEatingItem(AItemBase* Food, UDataTable* FoodTable, int32 BiteCount)
+{
+    const TCHAR* OwnerName = GetOwner() ? *GetOwner()->GetName() : TEXT("?");
+
+    if (!IsValid(Food))
+    {
+        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — Food invalid."), OwnerName);
+        return false;
+    }
+    if (FoodTable == nullptr)
+    {
+        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — FoodTable null."), OwnerName);
+        return false;
+    }
+
+    const FName RowName = Food->FoodTableRowName;   // data-driven: row id lives on the item, not hardcoded
+    const FFoodItemRow* Row = FoodTable->FindRow<FFoodItemRow>(RowName, TEXT("StartEatingItem"), /*bWarnIfRowMissing*/ false);
+    if (Row == nullptr)
+    {
+        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — row '%s' not found in '%s'."),
+            OwnerName, *RowName.ToString(), *FoodTable->GetName());
+        return false;
+    }
+
+    StartEating(Food, *Row, BiteCount);
+    return true;
+}
+
 void UMaslowBiologicalComponent::ConsumeBite()
 {
     // EC-EAT-3: omdlenie/mikrosen w trakcie → domknij sesję, nie gryź.

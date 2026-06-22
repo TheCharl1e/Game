@@ -9,6 +9,7 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogMaslow, Log, All);
 
 class ACaldrethZone;   // AmbientTemp: cache strefy (perf #1)
+class AItemBase;       // APPETITE slice 1b: StartEatingItem resolves food item → FFoodItemRow
 
 // Definicja struktury dla DT_ActionCosts (Row Struct).
 // Nazwa wiersza = identyfikator akcji (np. Action.Idle, Action.Work.Woodcutting),
@@ -681,6 +682,15 @@ public:
     // (posiłek abstrakcyjny/test). C++ NIE dotyka animacji.
     UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
     void StartEating(AActor* Food, const FFoodItemRow& Meal, int32 BiteCount);
+
+    // APPETITE slice 1b — wiring helper: resolves Food's FoodTableRowName from FoodTable → FFoodItemRow,
+    // then StartEating. Keeps the struct/data resolution in C++ (brain), so the BT/BP eat task calls ONE
+    // clean node (no wildcard struct/data-table pins in Blueprint). Returns false AND does NOT start when
+    // Food is invalid, FoodTable is null, or the row is not found — BP gates the eat montage on this bool
+    // (false → no PlaySlotAnimationAsDynamicMontage → no silent hang over an empty meal). Data-driven:
+    // the row id is read from the item (Food->FoodTableRowName), never hardcoded.
+    UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
+    bool StartEatingItem(AItemBase* Food, UDataTable* FoodTable, int32 BiteCount);
 
     // Jedno ugryzienie — wołane z AnimNotify (naturalny zegar gryzień, zero nowego timera). Deponuje makra
     // jednego kęsa, rośnie StomachFill, dekrementuje porcję itemu. Auto-stop przy sytości / wyczerpaniu.
