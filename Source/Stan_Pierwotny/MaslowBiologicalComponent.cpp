@@ -820,9 +820,13 @@ void UMaslowBiologicalComponent::UpdateEffectiveKcalThreshold()
     // Lerp(calm, nervous, N): N=0 → StableKcalThr (eats latest), N=1 → NervousKcalThr (eats earliest).
     const float TraitFloor = FMath::Lerp(StableKcalThr, NervousKcalThr, Neuroticism);
     // APPETITE slice 1 (część E): rozpchany żołądek → wyższy trigger → je wcześniej (dodatnie sprzężenie).
-    // LeptinBrake(BodyFat) = 0 w slice 1 (runaway zamierzony) → ujemne sprzężenie dochodzi w slice 2.
     const float StretchBonus = FMath::Max(0.0f, GastricCapacity - BaseGastricCapacity) * StretchBonusScale;
-    EffectiveKcalThreshold = TraitFloor + StretchBonus;
+    // APPETITE slice 2: LEPTYNA (ujemne sprzężenie, lipostat). dev>0 powyżej setpointu → LeptinBrake>0 → trigger NIŻEJ
+    // (je rzadziej); dev<0 poniżej → LeptinBrake<0 → trigger WYŻEJ (głodniejszy). Clamp: floor (gruby je rzadko, nie
+    // nigdy → bez cichego runaway w autofagię) i ceiling (wysycenie = "permanentnie głodny" przy MaxGlucose).
+    const float LeptinDev   = BodyFat - LeptinSetpointFat;
+    const float LeptinBrake = LeptinTriggerGain * LeptinDev;
+    EffectiveKcalThreshold  = FMath::Clamp(TraitFloor + StretchBonus - LeptinBrake, LeptinTriggerFloor, LeptinTriggerCeiling);
 }
 
 // ============================================================================================

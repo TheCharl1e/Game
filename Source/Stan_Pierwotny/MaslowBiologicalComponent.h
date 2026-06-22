@@ -607,6 +607,34 @@ public:
     UPROPERTY(EditDefaultsOnly, meta=(ClampMin="0.0"), Category = "Biology|Appetite")
     float StartingBodyFat = 1500.0f;
 
+    // --- APPETITE slice 2: LEPTYNA (hamulec — ujemne sprzężenie, lipostat setpoint-anchored) ---
+    // dev = BodyFat − LeptinSetpointFat. Powyżej setpointu leptyna TŁUMI (trigger niżej + posiłek mniejszy);
+    // poniżej trigger sam podbija głód. BodyFat osiada na LeptinSetpointFat → runaway (slice 1) → plateau.
+    // "Naturalna waga" per-archetyp (EditDefaultsOnly jak StartingBodyFat).
+    UPROPERTY(EditDefaultsOnly, meta=(ClampMin="0.0"), Category = "Biology|Appetite")
+    float LeptinSetpointFat = 1750.0f;
+
+    // Lewar 1 (trigger, DWUSTRONNY): ile kcal-progu na jednostkę dev BodyFat. [TBD→tune w B1b]
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.0"), Category = "Biology|Appetite")
+    float LeptinTriggerGain = 0.1f;
+
+    // Lewar 2 (sytość, JEDNOSTRONNY max(0,dev)): ile objętości-sytości ucinane na dev powyżej setpointu. [TBD→tune]
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.0"), Category = "Biology|Appetite")
+    float LeptinSatietyGain = 0.03f;
+
+    // Podłoga triggera — gruby NPC je RZADKO, nie NIGDY (bez tego EffKcalThr<0 → cichy runaway w autofagię = anty-cel).
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.0"), Category = "Biology|Appetite")
+    float LeptinTriggerFloor = 250.0f;
+
+    // Sufit triggera — SEMANTYKA: trigger ≥ MaxGlucose → Glucose<=trigger zawsze prawda → "permanentnie głodny"
+    // (wysycenie sygnału głodu; chudość nie robi się "bardziej niż zawsze głodna"). Default = MaxGlucose.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.0"), Category = "Biology|Appetite")
+    float LeptinTriggerCeiling = 1000.0f;
+
+    // Podłoga sytości — posiłek zawsze ≥ minimum (bez tego leptyna może zbić Setpoint ≤0 → NPC nie weźmie kęsa).
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.0"), Category = "Biology|Appetite")
+    float SatietyFloor = 20.0f;
+
     // ==== L3-02 OCEAN → PANIC (Neuroticism shifts panic CHANCE; rolled on metabolism cadence) ====
     // HP% (CurrentHP/CurrentMaxHP) at which the CALMEST NPC's panic chance becomes >0.
     // INVARIANT: must stay >= CriticalHPThreshold/AbsoluteMaxHP so the hard floor sits below the band. [tune]
@@ -666,7 +694,13 @@ public:
 
     // Próg sytości (kiedy przestać jeść) = pojemność × overfill (rozpychanie ponad pojemność → stretch).
     UFUNCTION(BlueprintPure, Category = "Biology|Appetite")
-    float GetSatietySetpoint() const { return GastricCapacity * SatietyOverfillFactor; }
+    float GetSatietySetpoint() const
+    {
+        // APPETITE slice 2: leptyna tnie wielkość posiłku TYLKO powyżej setpointu (jednostronnie); floor = min posiłek.
+        const float Base = GastricCapacity * SatietyOverfillFactor;
+        const float LeptinCut = LeptinSatietyGain * FMath::Max(0.0f, BodyFat - LeptinSetpointFat);
+        return FMath::Max(SatietyFloor, Base - LeptinCut);
+    }
 
     UFUNCTION(BlueprintPure, Category = "Biology|Appetite")
     float GetGastricCapacity() const { return GastricCapacity; }
