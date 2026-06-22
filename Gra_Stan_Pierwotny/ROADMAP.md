@@ -173,7 +173,7 @@
 | SUP-02 | RTSCameraPawn (WASD/Q-E/scroll/MMB) | 🔨 | P2 | BUILD-02 | Confirm compiled; parent for BP_RTSCamera |
 | SUP-03 | Senses → EQS perception wiring | ⬜ | P1 | L2-07 | VisionAcuity gates EQS sight — payoff of BodyCondition |
 | SUP-04 | OnBodyChanged event broadcast (HUD refresh) | ⬜ | P2 | L2-07, SUP-01b | Replace 0.5s poll with event |
-| SUP-05 | HUD-cleanup: wytnij martwe `Get DebugUI`→SetText z `THE ATMOSPHERE`(3×)/`Debug`(2×) w BP_DayNightCycle | ⬜ | P3 | — | Po HUD_CONSOLIDATION 2026-06-22: DebugUI=None (BeginPlay strip) → te SetText piszą w null (behawioralnie martwe). Dług KOSMETYCZNY, nie funkcjonalny. **Robić wizualnie w edytorze (reconnect exec na widoku), ZERO blind** — to rdzeniowe funkcje słońca/atmosfery/temp. |
+| SUP-05 | HUD-cleanup: wytnij martwe `Get DebugUI`→SetText z `THE ATMOSPHERE`(3×)/`Debug`(2×) w BP_DayNightCycle | ✅ | P3 | — | **DONE 2026-06-22 (Monolith, chirurgicznie):** THE ATMOSPHERE — bypass exec `Knot_0→CallFunction_27` + 9 węzłów (Pora/SunIntens/MoonIntens); Debug — body opróżniony (8 węzłów, w tym Print „nope"); zmienna `DebugUI` usunięta. **0 `Get DebugUI`, compile green, log PIE czysty** (0 spamu po wielu tickach THE ATMOSPHERE). Łańcuchy słońca/atmosfery/temp nietknięte. HUD nietknięty (`HUDReference=WBP_RTSHud_C` in_viewport, `CurrentTime="15:14"`). |
 
 ---
 
