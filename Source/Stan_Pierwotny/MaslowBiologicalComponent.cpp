@@ -858,16 +858,18 @@ void UMaslowBiologicalComponent::StartEating(AActor* Food, const FFoodItemRow& M
 // unresolved meal never leaves bIsEating=true hanging over a zero-volume session.
 bool UMaslowBiologicalComponent::StartEatingItem(AItemBase* Food, UDataTable* FoodTable, int32 BiteCount)
 {
-    const TCHAR* OwnerName = GetOwner() ? *GetOwner()->GetName() : TEXT("?");
+    // FString (not TCHAR*): GetName() returns a temporary FString; caching *FString into a raw pointer
+    // would dangle after the statement and print garbage. Hold the FString, deref (*) at each log site.
+    const FString OwnerName = GetOwner() ? GetOwner()->GetName() : FString(TEXT("?"));
 
     if (!IsValid(Food))
     {
-        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — Food invalid."), OwnerName);
+        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — Food invalid."), *OwnerName);
         return false;
     }
     if (FoodTable == nullptr)
     {
-        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — FoodTable null."), OwnerName);
+        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — FoodTable null."), *OwnerName);
         return false;
     }
 
@@ -876,7 +878,7 @@ bool UMaslowBiologicalComponent::StartEatingItem(AItemBase* Food, UDataTable* Fo
     if (Row == nullptr)
     {
         UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — row '%s' not found in '%s'."),
-            OwnerName, *RowName.ToString(), *FoodTable->GetName());
+            *OwnerName, *RowName.ToString(), *FoodTable->GetName());
         return false;
     }
 
