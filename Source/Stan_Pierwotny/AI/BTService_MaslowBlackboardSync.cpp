@@ -73,7 +73,9 @@ void UBTService_MaslowBlackboardSync::TickNode(
 	const uint8 Need = Maslow->GetActionableNeed(); // E_NeedState byte: 0=None,1=Hunger,2=Thirst,3=Sleep,4=Flee
 
 	// --- Write ONE authoritative, correctly-typed key to the AI decision layer ---
-	// SetValueAsEnum matches the Enum key "CurrentNeed" (E_NeedState). C++ is now the sole writer.
+	// SetValueAsEnum matches the Enum key "CurrentNeed" (E_NeedState). C++ is the SOLE writer:
+	// BP EvaluateNeeds' 4x SetValueAsEnum("CurrentNeed") were removed in the disarm (Bridge
+	// plaster #1 finished 2026-06-22) — no other writer of this key remains in the project.
 	BB->SetValueAsEnum(CurrentNeedKey.SelectedKeyName, Need);
 
 	// Verbose trace (off in shipping) -- enable LogTemp Verbose to watch the need each sync.
