@@ -886,6 +886,14 @@ bool UMaslowBiologicalComponent::StartEatingItem(AItemBase* Food, UDataTable* Fo
     return true;
 }
 
+// UTILITY (not biology) — prune null/destroyed entries from an actor array, return the new count.
+// See header note + ROADMAP TECH-11 (perception Adds but never removes the Food array).
+int32 UMaslowBiologicalComponent::CompactNullActors(TArray<AActor*>& Actors)
+{
+    Actors.RemoveAll([](const AActor* A) { return !IsValid(A); });
+    return Actors.Num();
+}
+
 void UMaslowBiologicalComponent::ConsumeBite()
 {
     // EC-EAT-3: omdlenie/mikrosen w trakcie → domknij sesję, nie gryź.

@@ -692,6 +692,15 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
     bool StartEatingItem(AItemBase* Food, UDataTable* FoodTable, int32 BiteCount);
 
+    // UTILITY — NOT biology. Lives here only as a pragmatic home (no UBlueprintFunctionLibrary in the
+    // module yet, and a dedicated file for one 3-liner is disproportionate). MOVE to a BP function library
+    // if more such utils accrue. Removes null/!IsValid entries from an actor array (by ref) and returns the
+    // new count. Used to prune BP_NPC_AI's perception-built Food array (perception only Adds, never removes
+    // → HowMuchFood would lie + the array would leak nulls; see ROADMAP TECH-11). Typed array pin (not
+    // wildcard) so it is Blueprint-authorable via tooling. Static: no Maslow state touched.
+    UFUNCTION(BlueprintCallable, Category = "Utility")
+    static int32 CompactNullActors(UPARAM(ref) TArray<AActor*>& Actors);
+
     // Jedno ugryzienie — wołane z AnimNotify (naturalny zegar gryzień, zero nowego timera). Deponuje makra
     // jednego kęsa, rośnie StomachFill, dekrementuje porcję itemu. Auto-stop przy sytości / wyczerpaniu.
     // Early-return przy !bIsEating / bIncapacitated / stale Food (EC-EAT-2/3).
