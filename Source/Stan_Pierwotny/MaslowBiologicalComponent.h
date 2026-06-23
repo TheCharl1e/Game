@@ -537,9 +537,23 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Biology|Vitals")
     float StaminaMinSpeedMultiplier = 0.5f;
 
-    /** Mnożnik prędkości ruchu z bieżącej Staminy: Lerp(MinSpeedMult..1.0 po Stamina/100). BP-ruch czyta to. */
+    /** Mnożnik prędkości ruchu z bieżącej Staminy: Lerp(MinSpeedMult..1.0 po Stamina/100). */
     UFUNCTION(BlueprintPure, Category = "AI|Maslow|Vitals")
     float GetStaminaSpeedMultiplier() const;
+
+    /** Bazowa MaxWalkSpeed (cache z CharacterMovement w BeginPlay). Ruch skalowany od niej przez Staminę (L1-08). */
+    UPROPERTY(BlueprintReadOnly, Category = "Biology|Vitals")
+    float BaseWalkSpeed = 0.0f;
+
+private:
+    /** Cache komponentu ruchu właściciela (skalowanie MaxWalkSpeed bez TActorIterator). */
+    UPROPERTY()
+    TObjectPtr<class UCharacterMovementComponent> CachedMovement = nullptr;
+
+    /** MaxWalkSpeed = BaseWalkSpeed×Stamina; 0 gdy śpi/mikrosen/omdlały (L1-08). Woła kadencja + przejścia snu. */
+    void ApplyMovementSpeedForState();
+
+public:
 
     // Funkcje
     UFUNCTION(BlueprintCallable, Category = "AI|Maslow")
