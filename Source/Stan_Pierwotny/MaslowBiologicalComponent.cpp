@@ -8,6 +8,7 @@
 #include "AIController.h"            // ETAP 2: zatrzymanie/wznowienie Behavior Tree
 #include "BrainComponent.h"         // ETAP 2: StopLogic / RestartLogic
 #include "GameFramework/CharacterMovementComponent.h" // L1-08: stan metaboliczny → MaxWalkSpeed
+#include "InventoryComponent.h"     // L1-09a: Σ izolacji ubrania (GetTotalEquippedInsulation)
 #include "Map/CaldrethZone.h"       // AmbientTemp: GetZoneAtLocation + FZoneDef.BaseTemp
 #include "NPC/NPCIdentityComponent.h" // L3-02: read Neuroticism for the panic roll
 #include "ItemBase.h"               // APPETITE slice 1: nadgryzienie itemu (Cast<AItemBase> w ConsumeBite)
@@ -82,6 +83,9 @@ void UMaslowBiologicalComponent::BeginPlay()
         {
             BaseWalkSpeed = CachedMovement->MaxWalkSpeed;
         }
+
+        // L1-09a: cache InventoryComponent dla izolacji ubrania (może być null — NPC bez inwentarza = nagi).
+        CachedInventory = DamageOwner->FindComponentByClass<UInventoryComponent>();
     }
 
     // Hunger warstwa 1: seed the felt-hunger threshold to the (designer-edited) calm baseline so the judge
@@ -199,9 +203,14 @@ void UMaslowBiologicalComponent::ProcessMetabolism()
     // AmbientTemp = baza strefy (cache) + offset doby (nasłonecznienie zegara — SunFactor).
     AmbientTemp = GetZoneBaseTemp() + DayNightTempOffset;
 
-    // APPETITE slice 1 (część D) — most fat→izolacja. BodyFat 0..Max → InsulationFactor 1.0..MinInsulationFromFat.
-    // Liczone TU (przed reżimami), by sprzężenie stygnięcia użyło świeżej izolacji w TYM samym ticku. Jedyny pisarz.
-    InsulationFactor = FMath::Lerp(1.0f, MinInsulationFromFat, GetBodyFatRatio());
+    // APPETITE slice 1 (część D) + L1-09a clothing — most fat+ubranie → izolacja. Liczone TU (przed reżimami),
+    // by sprzężenie stygnięcia użyło świeżej izolacji w TYM samym ticku. Jedyny pisarz InsulationFactor.
+    // Model (additive-clamped, NIE mnożenie): baza-z-tłuszczu (Lerp 1.0..0.6) MINUS Σ izolacji ubrania,
+    // clamp do [FloorInsulation, 1.0]. Niższy InsulationFactor = cieplej (mnożnik stygnięcia). Tłuszcz = tło,
+    // ubranie dodaje na wierzch (odejmuje od mnożnika). Floor → ubrany grubas najcieplejszy, różnica mała.
+    const float BaseFromFat        = FMath::Lerp(1.0f, MinInsulationFromFat, GetBodyFatRatio());
+    const float ClothingInsulation = IsValid(CachedInventory) ? CachedInventory->GetTotalEquippedInsulation() : 0.0f;
+    InsulationFactor = FMath::Clamp(BaseFromFat - ClothingInsulation, FloorInsulation, 1.0f);
 
     // ==== SPRZĘŻENIE OTOCZENIE → CIAŁO (3 reżimy termoregulacji — zatwierdzone) ====
     // Hipotermia STOPNIOWA (przez wiele ticków) — fail-safe, NIE instant. CurrentTemp≤CriticalTempThreshold(34)
