@@ -9,6 +9,7 @@
 #include "BrainComponent.h"         // ETAP 2: StopLogic / RestartLogic
 #include "GameFramework/CharacterMovementComponent.h" // L1-08: stan metaboliczny → MaxWalkSpeed
 #include "InventoryComponent.h"     // L1-09a: Σ izolacji ubrania (GetTotalEquippedInsulation)
+#include "Temperature/HeatSourceRegistrySubsystem.h" // L1-09b: ogień → lokalny RadiantHeat do AmbientTemp
 #include "Map/CaldrethZone.h"       // AmbientTemp: GetZoneAtLocation + FZoneDef.BaseTemp
 #include "NPC/NPCIdentityComponent.h" // L3-02: read Neuroticism for the panic roll
 #include "ItemBase.h"               // APPETITE slice 1: nadgryzienie itemu (Cast<AItemBase> w ConsumeBite)
@@ -202,6 +203,20 @@ void UMaslowBiologicalComponent::ProcessMetabolism()
     UpdateDayNightTempOffset();   // warstwa doby: DayNightTempOffset z nasłonecznienia zegara świata
     // AmbientTemp = baza strefy (cache) + offset doby (nasłonecznienie zegara — SunFactor).
     AmbientTemp = GetZoneBaseTemp() + DayNightTempOffset;
+
+    // L1-09b (fire): + LOKALNE ciepło od ognisk/pochodni (suma źródeł w zasięgu, huddle falloff (1−d/r)²,
+    // clamp ≤MaxRadiantHeat w rejestrze). Podnosi LOKALNY AmbientTemp → reżimy termoregulacji robią resztę
+    // (zimny NPC przy ognisku → AmbientTemp w górę → grzeje się). Rejestr rzadki → tani odczyt ×500.
+    if (const UWorld* HeatWorld = GetWorld())
+    {
+        if (const UHeatSourceRegistrySubsystem* HeatReg = HeatWorld->GetSubsystem<UHeatSourceRegistrySubsystem>())
+        {
+            if (const AActor* TempOwner = GetOwner())
+            {
+                AmbientTemp += HeatReg->GetRadiantHeatAt(TempOwner->GetActorLocation());
+            }
+        }
+    }
 
     // APPETITE slice 1 (część D) + L1-09a clothing — most fat+ubranie → izolacja. Liczone TU (przed reżimami),
     // by sprzężenie stygnięcia użyło świeżej izolacji w TYM samym ticku. Jedyny pisarz InsulationFactor.
