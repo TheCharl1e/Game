@@ -8,7 +8,7 @@ public class Stan_Pierwotny : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayStateTreeModule", "StateTreeModule", "EnhancedInput", "AIModule", "UMG" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayStateTreeModule", "StateTreeModule", "EnhancedInput", "AIModule", "NavigationSystem", "UMG" });
 
 		PublicDefinitions.Add("ENABLE_FORMAT_STRING_SANITIZATION=0");
 

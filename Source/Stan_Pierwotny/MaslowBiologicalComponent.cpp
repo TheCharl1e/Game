@@ -66,6 +66,15 @@ void UMaslowBiologicalComponent::BeginPlay()
 {
     Super::BeginPlay();
 
+    // TASK 3 (flee): damage-hook — KAŻDE ApplyDamage na właścicielu → SetThreat(causer). Generyczne źródło
+    // zagrożenia (predator/człowiek/pułapka, byle przez standardowy damage system). Percepcja predatora (L0-04)
+    // woła SetThreat osobno tym samym API. BodyConditionComponent::ApplyDamage (część-specyficzne, bez instigatora)
+    // celowo NIE odpala flee — od hipotermii się nie ucieka.
+    if (AActor* DamageOwner = GetOwner())
+    {
+        DamageOwner->OnTakeAnyDamage.AddDynamic(this, &UMaslowBiologicalComponent::HandleAnyDamage);
+    }
+
     // Hunger warstwa 1: seed the felt-hunger threshold to the (designer-edited) calm baseline so the judge
     // has a valid value before the first metabolism cadence runs UpdateEffectiveKcalThreshold().
     EffectiveKcalThreshold = StableKcalThr;
@@ -577,6 +586,60 @@ float UMaslowBiologicalComponent::GetStaminaSpeedMultiplier() const
     return FMath::Lerp(StaminaMinSpeedMultiplier, 1.0f, Norm);
 }
 
+// ==== FLEE / ZAGROŻENIE (TASK 3) ====
+void UMaslowBiologicalComponent::SetThreat(AActor* InThreatActor, EThreatType Type)
+{
+    ThreatActor = InThreatActor;
+    if (IsValid(InThreatActor))
+    {
+        ThreatLocation = InThreatActor->GetActorLocation();   // cache — przetrwa zniszczenie aktora
+    }
+    ThreatType = Type;
+    const UWorld* World = GetWorld();
+    ThreatExpiryTime = (World ? World->GetTimeSeconds() : 0.0f) + ThreatMemoryDuration;
+
+    UE_LOG(LogMaslow, Warning,
+        TEXT("[Flee] %s: ZAGROŻENIE typ=%d od '%s' @ (%.0f,%.0f) — ucieka %.1fs."),
+        GetOwner() ? *GetOwner()->GetName() : TEXT("?"), static_cast<int32>(Type),
+        *GetNameSafe(InThreatActor), ThreatLocation.X, ThreatLocation.Y, ThreatMemoryDuration);
+}
+
+void UMaslowBiologicalComponent::ClearThreat()
+{
+    ThreatActor.Reset();
+    ThreatType       = EThreatType::None;
+    ThreatExpiryTime = 0.0f;
+}
+
+bool UMaslowBiologicalComponent::IsThreatActive() const
+{
+    const UWorld* World = GetWorld();
+    return World && (World->GetTimeSeconds() < ThreatExpiryTime);
+}
+
+FVector UMaslowBiologicalComponent::GetThreatLocation() const
+{
+    // Żywy aktor → jego bieżąca pozycja (uciekaj od RUCHOMEGO zagrożenia); inaczej ostatni cache.
+    if (ThreatActor.IsValid())
+    {
+        return ThreatActor->GetActorLocation();
+    }
+    return ThreatLocation;
+}
+
+void UMaslowBiologicalComponent::HandleAnyDamage(AActor* DamagedActor, float Damage,
+    const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
+{
+    if (Damage <= 0.0f)
+    {
+        return;
+    }
+    // Preferuj DamageCauser (np. pocisk/zwierzę); fallback na pawna kontrolera-sprawcy.
+    AActor* Source = IsValid(DamageCauser) ? DamageCauser
+                   : (InstigatedBy ? Cast<AActor>(InstigatedBy->GetPawn()) : nullptr);
+    SetThreat(Source, EThreatType::Damage);
+}
+
 void UMaslowBiologicalComponent::ResolveAwakeRateFromWorldClock()
 {
     // Jednorazowa próba (nawet przy niepowodzeniu — wtedy zostaje fallback z UPROPERTY).
@@ -723,7 +786,9 @@ EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed(bool bActionable
     // Two layers (L3-02): (1) bIsInPanic = Neuroticism latch, rolled on metabolism cadence;
     // (2) CurrentHP <= CriticalHPThreshold = universal hard floor, read LIVE here every BT tick
     // (instant panic on a sudden lethal ApplyDamage, regardless of personality). NO RNG in this judge.
-    if (bIsInPanic || CurrentHP <= CriticalHPThreshold)
+    // TASK 3: aktywne ZAGROŻENIE (damage-hook / predator / wrogi człowiek — IsThreatActive) jest TRZECIM
+    // wyzwalaczem paniki, obok bIsInPanic (Neurotyczność) i twardej podłogi HP. Każdy → najwyższy priorytet (flee).
+    if (bIsInPanic || CurrentHP <= CriticalHPThreshold || IsThreatActive())
     {
         return EMaslowPriority::Level_0_FightOrFlight;
     }

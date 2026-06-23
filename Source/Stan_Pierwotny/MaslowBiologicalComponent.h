@@ -127,6 +127,18 @@ enum class EMaslowPriority : uint8
     Satisfied             UMETA(DisplayName = "All Needs Met (Idle/Social)")
 };
 
+// TASK 3 (flee, plaster #4): formy zagrożenia, OD którego NPC ucieka. Generyczne — damage-hook ustawia Damage;
+// percepcja predatora/wroga (L0-04) ustawi Predator/HostileHuman PRZEZ TO SAMO SetThreat. Flee = ten sam ruch
+// (od GetThreatLocation()); typ jest pod przyszłe różnicowanie reakcji (np. człowiek → walcz-lub-uciekaj wg OCEAN).
+UENUM(BlueprintType)
+enum class EThreatType : uint8
+{
+    None          UMETA(DisplayName = "None"),
+    Damage        UMETA(DisplayName = "Damage (got hit)"),
+    Predator      UMETA(DisplayName = "Predator (animal)"),
+    HostileHuman  UMETA(DisplayName = "Hostile human")
+};
+
 // Drabina zmęczenia z HoursAwake (progi 16/20/24h). Ortogonalna do bIsRested (buff po śnie).
 UENUM(BlueprintType)
 enum class EFatigueState : uint8
@@ -337,6 +349,56 @@ public:
     /** Poza snu DOBROWOLNEGO start (sen napędzany przez BT via StartSleep). Omdlenie/ragdoll używa OnCollapse. */
     UFUNCTION(BlueprintImplementableEvent, Category = "Biology|Events|Sleep")
     void OnSleepStart();
+
+    // ==== FLEE / ZAGROŻENIE (TASK 3, plaster #4) ====
+    // Generyczne zagrożenie, OD którego NPC ucieka. Ustawiane przez damage-hook (OnTakeAnyDamage → causer)
+    // ORAZ (L0-04) przez percepcję predatora/wroga — to samo SetThreat. Threat jest WŁASNYM wyzwalaczem
+    // paniki: EvaluateCurrentNeed czyta IsThreatActive() → Level_0_FightOrFlight, niezależnie od HP/Neurotyczności.
+
+    /** Aktor-zagrożenie (słaby ptr — auto-null gdy zniszczony). Żywe źródło kierunku ucieczki. */
+    UPROPERTY(BlueprintReadOnly, Category = "AI|Maslow|Threat")
+    TWeakObjectPtr<AActor> ThreatActor;
+
+    /** Ostatnia znana pozycja zagrożenia (cache — gdy ThreatActor zniknie, wciąż uciekamy od miejsca). */
+    UPROPERTY(BlueprintReadOnly, Category = "AI|Maslow|Threat")
+    FVector ThreatLocation = FVector::ZeroVector;
+
+    /** Typ bieżącego zagrożenia (pod przyszłe różnicowanie reakcji). */
+    UPROPERTY(BlueprintReadOnly, Category = "AI|Maslow|Threat")
+    EThreatType ThreatType = EThreatType::None;
+
+    /** Ile sekund NPC ucieka po OSTATNIM bodźcu zagrożenia, zanim się uspokoi. [tune] */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Maslow|Threat")
+    float ThreatMemoryDuration = 8.0f;
+
+    /** Czas świata, do którego zagrożenie jest „aktywne" (przedłużane każdym SetThreat). */
+    UPROPERTY(BlueprintReadOnly, Category = "AI|Maslow|Threat")
+    float ThreatExpiryTime = 0.0f;
+
+    /** Zgłoś zagrożenie (damage-hook / percepcja L0-04). Zapisuje aktora+pozycję+typ, przedłuża okno ucieczki. */
+    UFUNCTION(BlueprintCallable, Category = "AI|Maslow|Threat")
+    void SetThreat(AActor* InThreatActor, EThreatType Type);
+
+    /** Wyczyść zagrożenie (np. dotarcie do Safe Zone / threat zniknął). */
+    UFUNCTION(BlueprintCallable, Category = "AI|Maslow|Threat")
+    void ClearThreat();
+
+    /** Czy jest aktywne zagrożenie (w oknie ThreatMemoryDuration). Czytane przez EvaluateCurrentNeed. */
+    UFUNCTION(BlueprintPure, Category = "AI|Maslow|Threat")
+    bool IsThreatActive() const;
+
+    /** Pozycja, OD której uciekać (żywy ThreatActor jeśli ważny, inaczej cache). Czyta BTTask_Flee. */
+    UFUNCTION(BlueprintPure, Category = "AI|Maslow|Threat")
+    FVector GetThreatLocation() const;
+
+    /** Wizual paniki/ucieczki (BP rysuje krzyk/sprint). Odpalane przez BTTask_Flee na wejściu. */
+    UFUNCTION(BlueprintImplementableEvent, Category = "Biology|Events|Threat")
+    void OnPanicFlee();
+
+    /** Bound do GetOwner()->OnTakeAnyDamage w BeginPlay: KAŻDE ApplyDamage → SetThreat(causer, Damage). */
+    UFUNCTION()
+    void HandleAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType,
+        class AController* InstigatedBy, AActor* DamageCauser);
 
     // ==== AMBIENT TEMP (rdzeń strefowy + sprzężenie otoczenie→ciało) ====
 
