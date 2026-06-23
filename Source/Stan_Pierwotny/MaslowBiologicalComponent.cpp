@@ -66,6 +66,15 @@ void UMaslowBiologicalComponent::BeginPlay()
 {
     Super::BeginPlay();
 
+    // TASK 3 (flee): damage-hook — KAŻDE ApplyDamage na właścicielu → SetThreat(causer). Generyczne źródło
+    // zagrożenia (predator/człowiek/pułapka, byle przez standardowy damage system). Percepcja predatora (L0-04)
+    // woła SetThreat osobno tym samym API. BodyConditionComponent::ApplyDamage (część-specyficzne, bez instigatora)
+    // celowo NIE odpala flee — od hipotermii się nie ucieka.
+    if (AActor* DamageOwner = GetOwner())
+    {
+        DamageOwner->OnTakeAnyDamage.AddDynamic(this, &UMaslowBiologicalComponent::HandleAnyDamage);
+    }
+
     // Hunger warstwa 1: seed the felt-hunger threshold to the (designer-edited) calm baseline so the judge
     // has a valid value before the first metabolism cadence runs UpdateEffectiveKcalThreshold().
     EffectiveKcalThreshold = StableKcalThr;
@@ -127,6 +136,18 @@ void UMaslowBiologicalComponent::ProcessMetabolism()
         ResolveAwakeRateFromWorldClock();
     }
     UpdateFatigue();
+
+    // STAMINA (TASK 2): gate PRĘDKOŚCI, nie potrzeba. Drenowana kosztem męczącej akcji (CurrentActionStaminaCost
+    // z DT akcji, dotąd liczony lecz NIEaplikowany), regenerowana w spoczynku/śnie. Czytana przez BP-ruch via
+    // GetStaminaSpeedMultiplier(). Wycięta z drabiny potrzeb (EvaluateCurrentNeed) — patrz D1.
+    if (CurrentActionStaminaCost > 0.0f)
+    {
+        CurrentStamina = FMath::Clamp(CurrentStamina - CurrentActionStaminaCost, 0.0f, 100.0f);
+    }
+    else
+    {
+        CurrentStamina = FMath::Clamp(CurrentStamina + StaminaRegenPerTick, 0.0f, 100.0f);
+    }
 
     // Spalanie wody (zachowane z poprzedniej iteracji + Mnożnik Aktywności)
     float TotalHydrationBurn = HydrationBurnRatePerTick * CurrentActionHydrationMultiplier;
@@ -332,6 +353,14 @@ void UMaslowBiologicalComponent::UpdateFatigue()
         HandleFatigueTransition(Prev, FatigueState);
     }
 
+    // D2 (TASK 2): WYBUDZENIE MIMOWOLNE z omdlenia. Collapse ustawił bIsSleeping (sen wymuszony) → HoursAwake
+    // malało powyżej; gdy w pełni odespane, C++ SAM budzi (StopSleep: znosi bIncapacitated, RestartLogic wznawia
+    // BT, OnWakeUp). To JEDYNE wyjście z pułapki omdlenia — BT był StopLogic'owany, więc sen dobrowolny (BT) nie zadziała.
+    if (bIncapacitated && HoursAwake <= KINDA_SMALL_NUMBER)
+    {
+        StopSleep();
+    }
+
     // Mikrosen: losowo, tylko na jawie, ≥ próg mikrosnów, i NIE gdy omdlały (Collapsed nadpisuje).
     if (!bIsSleeping && !bMicrosleeping && !bIncapacitated && HoursAwake >= MicrosleepThreshold
         && FMath::FRand() < MicrosleepChancePerTick)
@@ -352,6 +381,11 @@ void UMaslowBiologicalComponent::HandleFatigueTransition(EFatigueState PrevState
     if (NewState == EFatigueState::Collapsed && PrevState != EFatigueState::Collapsed)
     {
         bIncapacitated = true;
+        // D2 (TASK 2): omdlenie = SEN WYMUSZONY. Bez tego UpdateFatigue dalej NARASTAŁOby HoursAwake
+        // (gałąź !bIsSleeping) → NPC nigdy się nie wybudza (StopLogic zabił BT, StopSleep nikt nie wołał).
+        // Z bIsSleeping=true HoursAwake MALEJE co tick, a UpdateFatigue auto-woła StopSleep przy ~0
+        // (wznawia BT, OnWakeUp). C++ posiada wybudzenie MIMOWOLNE; BT posiada tylko sen DOBROWOLNY.
+        bIsSleeping = true;
         if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
         {
             if (AAIController* AC = Cast<AAIController>(OwnerPawn->GetController()))
@@ -502,6 +536,7 @@ void UMaslowBiologicalComponent::StartSleep()
     }
     bIsSleeping = true;
     bIsRested = false;   // buff zużyty w chwili zaśnięcia; odzyskany dopiero po wyspaniu
+    OnSleepStart();      // D6 (TASK 2): poza snu dobrowolnego (BP). Omdlenie ma osobny wizual (OnCollapse/ragdoll).
     UE_LOG(LogMaslow, Log, TEXT("[Sleep] %s: zasypia (HoursAwake=%.2f, temp=%.1f, jakość=%.2f)."),
         GetOwner() ? *GetOwner()->GetName() : TEXT("?"), HoursAwake, CurrentTemp, GetTempQualityMultiplier());
 }
@@ -541,6 +576,68 @@ void UMaslowBiologicalComponent::StopSleep()
     }
     UE_LOG(LogMaslow, Log, TEXT("[Sleep] %s: budzi się (HoursAwake=%.2f, Rested=%d)."),
         GetOwner() ? *GetOwner()->GetName() : TEXT("?"), HoursAwake, bIsRested ? 1 : 0);
+}
+
+float UMaslowBiologicalComponent::GetStaminaSpeedMultiplier() const
+{
+    // TASK 2: Stamina → prędkość ruchu. Lerp(MinSpeedMult .. 1.0) po znormalizowanej Staminie (0..100).
+    // Wyczerpany NPC idzie wolno (MinSpeedMult), nie staje. BP-ruch mnoży MaxWalkSpeed przez to.
+    const float Norm = FMath::Clamp(CurrentStamina / 100.0f, 0.0f, 1.0f);
+    return FMath::Lerp(StaminaMinSpeedMultiplier, 1.0f, Norm);
+}
+
+// ==== FLEE / ZAGROŻENIE (TASK 3) ====
+void UMaslowBiologicalComponent::SetThreat(AActor* InThreatActor, EThreatType Type)
+{
+    ThreatActor = InThreatActor;
+    if (IsValid(InThreatActor))
+    {
+        ThreatLocation = InThreatActor->GetActorLocation();   // cache — przetrwa zniszczenie aktora
+    }
+    ThreatType = Type;
+    const UWorld* World = GetWorld();
+    ThreatExpiryTime = (World ? World->GetTimeSeconds() : 0.0f) + ThreatMemoryDuration;
+
+    UE_LOG(LogMaslow, Warning,
+        TEXT("[Flee] %s: ZAGROŻENIE typ=%d od '%s' @ (%.0f,%.0f) — ucieka %.1fs."),
+        GetOwner() ? *GetOwner()->GetName() : TEXT("?"), static_cast<int32>(Type),
+        *GetNameSafe(InThreatActor), ThreatLocation.X, ThreatLocation.Y, ThreatMemoryDuration);
+}
+
+void UMaslowBiologicalComponent::ClearThreat()
+{
+    ThreatActor.Reset();
+    ThreatType       = EThreatType::None;
+    ThreatExpiryTime = 0.0f;
+}
+
+bool UMaslowBiologicalComponent::IsThreatActive() const
+{
+    const UWorld* World = GetWorld();
+    return World && (World->GetTimeSeconds() < ThreatExpiryTime);
+}
+
+FVector UMaslowBiologicalComponent::GetThreatLocation() const
+{
+    // Żywy aktor → jego bieżąca pozycja (uciekaj od RUCHOMEGO zagrożenia); inaczej ostatni cache.
+    if (ThreatActor.IsValid())
+    {
+        return ThreatActor->GetActorLocation();
+    }
+    return ThreatLocation;
+}
+
+void UMaslowBiologicalComponent::HandleAnyDamage(AActor* DamagedActor, float Damage,
+    const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
+{
+    if (Damage <= 0.0f)
+    {
+        return;
+    }
+    // Preferuj DamageCauser (np. pocisk/zwierzę); fallback na pawna kontrolera-sprawcy.
+    AActor* Source = IsValid(DamageCauser) ? DamageCauser
+                   : (InstigatedBy ? Cast<AActor>(InstigatedBy->GetPawn()) : nullptr);
+    SetThreat(Source, EThreatType::Damage);
 }
 
 void UMaslowBiologicalComponent::ResolveAwakeRateFromWorldClock()
@@ -683,21 +780,26 @@ float UMaslowBiologicalComponent::GetFatPercent() const
 }
 
 // Główna funkcja decyzyjna (Sędzia Maslowa)
-EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed()
+EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed(bool bActionableOnly)
 {
     // POZIOM 0: Przerwanie Krytyczne (Panic) - Nadpisuje wszystko.
     // Two layers (L3-02): (1) bIsInPanic = Neuroticism latch, rolled on metabolism cadence;
     // (2) CurrentHP <= CriticalHPThreshold = universal hard floor, read LIVE here every BT tick
     // (instant panic on a sudden lethal ApplyDamage, regardless of personality). NO RNG in this judge.
-    if (bIsInPanic || CurrentHP <= CriticalHPThreshold)
+    // TASK 3: aktywne ZAGROŻENIE (damage-hook / predator / wrogi człowiek — IsThreatActive) jest TRZECIM
+    // wyzwalaczem paniki, obok bIsInPanic (Neurotyczność) i twardej podłogi HP. Każdy → najwyższy priorytet (flee).
+    if (bIsInPanic || CurrentHP <= CriticalHPThreshold || IsThreatActive())
     {
         return EMaslowPriority::Level_0_FightOrFlight;
     }
 
     // POZIOM 1: Fizjologia (Sprawdzamy od najszybciej zabijającego czynnika)
 
-    // 1. Zamarznięcie zabija najszybciej
-    if (CurrentTemp <= CriticalTempThreshold)
+    // 1. Zamarznięcie zabija najszybciej. F2: Temperature NIE MA dziś BT-akcji (temperature slice TODO).
+    //    Gdy bActionableOnly (z GetActionableNeed) → POMIŃ, by zmarznięty NPC nie zwracał need=0 i nie marzł
+    //    bezczynnie, lecz realizował niższą ACTIONABLE potrzebę (pić/jeść/spać). Hipotermia C++ (cold-burn,
+    //    obrażenia) działa niezależnie od tej gałęzi. Pełna drabina (bez flagi) wciąż zwraca Temperature dla HUD.
+    if (!bActionableOnly && CurrentTemp <= CriticalTempThreshold)
     {
         return EMaslowPriority::Level_1_Temperature;
     }
@@ -708,8 +810,10 @@ EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed()
         return EMaslowPriority::Level_1_Hydration;
     }
 
-    // 3. Wyczerpanie prowadzi do omdlenia, po czym zjada nas wilk
-    if (CurrentStamina <= CriticalStaminaThreshold)
+    // 3. Zmęczenie (HoursAwake) — sen jest JEDYNĄ osią, którą sen realnie regeneruje (D1, TASK 2 2026-06-23).
+    //    Próg = MentalFogThreshold (16h): NPC szuka snu od mgły umysłowej, ZANIM dojdzie do mikrosnów/omdlenia.
+    //    CurrentStamina WYCIĘTA z drabiny potrzeb — teraz wyłącznie gate prędkości (GetStaminaSpeedMultiplier).
+    if (HoursAwake >= MentalFogThreshold)
     {
         return EMaslowPriority::Level_1_Rest;
     }
@@ -735,7 +839,9 @@ EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed()
 //   0 = None, 1 = Hunger, 2 = Thirst, 3 = Sleep, 4 = Flee.
 uint8 UMaslowBiologicalComponent::GetActionableNeed()
 {
-    switch (EvaluateCurrentNeed())
+    // F2: bActionableOnly=true → drabina pomija niezaimplementowane poziomy (Temperature) i schodzi do
+    // następnej potrzeby z gałęzią BT. Bez tego zmarznięty NPC zwracał need=0 i marzł bezczynnie.
+    switch (EvaluateCurrentNeed(/*bActionableOnly=*/true))
     {
         case EMaslowPriority::Level_0_FightOrFlight: return 4; // Flee  (E_NeedState entry 4: name UNVERIFIED; branch disconnected in slice #1 — harmless, no decorator matches 4)
         case EMaslowPriority::Level_1_Hydration:     return 2; // Thirst  <-- slice #1 wired branch
@@ -850,6 +956,48 @@ void UMaslowBiologicalComponent::StartEating(AActor* Food, const FFoodItemRow& M
         TEXT("[Eat:%s] StartEating — Volume=%.1f bites=%d (Carb=%.0f Fat=%.0f Prot=%.0f) StomachFill=%.1f Setpoint=%.1f"),
         GetOwner() ? *GetOwner()->GetName() : TEXT("?"),
         Meal.Volume, TotalBites, Meal.NutritionKcal, Meal.FatG, Meal.ProteinG, StomachFill, GetSatietySetpoint());
+}
+
+// APPETITE slice 1b — BP-facing wrapper. Resolves the item's row from FoodTable (brain owns the data
+// lookup) and starts the meal. Fail-safe: refuses (return false, NO StartEating) on invalid Food / null
+// table / missing row, each with a Warning. The eat task gates the montage on the return value so an
+// unresolved meal never leaves bIsEating=true hanging over a zero-volume session.
+bool UMaslowBiologicalComponent::StartEatingItem(AItemBase* Food, UDataTable* FoodTable, int32 BiteCount)
+{
+    // FString (not TCHAR*): GetName() returns a temporary FString; caching *FString into a raw pointer
+    // would dangle after the statement and print garbage. Hold the FString, deref (*) at each log site.
+    const FString OwnerName = GetOwner() ? GetOwner()->GetName() : FString(TEXT("?"));
+
+    if (!IsValid(Food))
+    {
+        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — Food invalid."), *OwnerName);
+        return false;
+    }
+    if (FoodTable == nullptr)
+    {
+        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — FoodTable null."), *OwnerName);
+        return false;
+    }
+
+    const FName RowName = Food->FoodTableRowName;   // data-driven: row id lives on the item, not hardcoded
+    const FFoodItemRow* Row = FoodTable->FindRow<FFoodItemRow>(RowName, TEXT("StartEatingItem"), /*bWarnIfRowMissing*/ false);
+    if (Row == nullptr)
+    {
+        UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — row '%s' not found in '%s'."),
+            *OwnerName, *RowName.ToString(), *FoodTable->GetName());
+        return false;
+    }
+
+    StartEating(Food, *Row, BiteCount);
+    return true;
+}
+
+// UTILITY (not biology) — prune null/destroyed entries from an actor array, return the new count.
+// See header note + ROADMAP TECH-11 (perception Adds but never removes the Food array).
+int32 UMaslowBiologicalComponent::CompactNullActors(TArray<AActor*>& Actors)
+{
+    Actors.RemoveAll([](const AActor* A) { return !IsValid(A); });
+    return Actors.Num();
 }
 
 void UMaslowBiologicalComponent::ConsumeBite()

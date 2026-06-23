@@ -9,6 +9,7 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogMaslow, Log, All);
 
 class ACaldrethZone;   // AmbientTemp: cache strefy (perf #1)
+class AItemBase;       // APPETITE slice 1b: StartEatingItem resolves food item → FFoodItemRow
 
 // Definicja struktury dla DT_ActionCosts (Row Struct).
 // Nazwa wiersza = identyfikator akcji (np. Action.Idle, Action.Work.Woodcutting),
@@ -124,6 +125,18 @@ enum class EMaslowPriority : uint8
     Level_1_Nutrition     UMETA(DisplayName = "Physiological: Hunger"),
     Level_2_Safety        UMETA(DisplayName = "Safety (Shelter/Weapons)"),
     Satisfied             UMETA(DisplayName = "All Needs Met (Idle/Social)")
+};
+
+// TASK 3 (flee, plaster #4): formy zagrożenia, OD którego NPC ucieka. Generyczne — damage-hook ustawia Damage;
+// percepcja predatora/wroga (L0-04) ustawi Predator/HostileHuman PRZEZ TO SAMO SetThreat. Flee = ten sam ruch
+// (od GetThreatLocation()); typ jest pod przyszłe różnicowanie reakcji (np. człowiek → walcz-lub-uciekaj wg OCEAN).
+UENUM(BlueprintType)
+enum class EThreatType : uint8
+{
+    None          UMETA(DisplayName = "None"),
+    Damage        UMETA(DisplayName = "Damage (got hit)"),
+    Predator      UMETA(DisplayName = "Predator (animal)"),
+    HostileHuman  UMETA(DisplayName = "Hostile human")
 };
 
 // Drabina zmęczenia z HoursAwake (progi 16/20/24h). Ortogonalna do bIsRested (buff po śnie).
@@ -333,6 +346,60 @@ public:
     UFUNCTION(BlueprintImplementableEvent, Category = "Biology|Events|Sleep")
     void OnRested();
 
+    /** Poza snu DOBROWOLNEGO start (sen napędzany przez BT via StartSleep). Omdlenie/ragdoll używa OnCollapse. */
+    UFUNCTION(BlueprintImplementableEvent, Category = "Biology|Events|Sleep")
+    void OnSleepStart();
+
+    // ==== FLEE / ZAGROŻENIE (TASK 3, plaster #4) ====
+    // Generyczne zagrożenie, OD którego NPC ucieka. Ustawiane przez damage-hook (OnTakeAnyDamage → causer)
+    // ORAZ (L0-04) przez percepcję predatora/wroga — to samo SetThreat. Threat jest WŁASNYM wyzwalaczem
+    // paniki: EvaluateCurrentNeed czyta IsThreatActive() → Level_0_FightOrFlight, niezależnie od HP/Neurotyczności.
+
+    /** Aktor-zagrożenie (słaby ptr — auto-null gdy zniszczony). Żywe źródło kierunku ucieczki. */
+    UPROPERTY(BlueprintReadOnly, Category = "AI|Maslow|Threat")
+    TWeakObjectPtr<AActor> ThreatActor;
+
+    /** Ostatnia znana pozycja zagrożenia (cache — gdy ThreatActor zniknie, wciąż uciekamy od miejsca). */
+    UPROPERTY(BlueprintReadOnly, Category = "AI|Maslow|Threat")
+    FVector ThreatLocation = FVector::ZeroVector;
+
+    /** Typ bieżącego zagrożenia (pod przyszłe różnicowanie reakcji). */
+    UPROPERTY(BlueprintReadOnly, Category = "AI|Maslow|Threat")
+    EThreatType ThreatType = EThreatType::None;
+
+    /** Ile sekund NPC ucieka po OSTATNIM bodźcu zagrożenia, zanim się uspokoi. [tune] */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Maslow|Threat")
+    float ThreatMemoryDuration = 8.0f;
+
+    /** Czas świata, do którego zagrożenie jest „aktywne" (przedłużane każdym SetThreat). */
+    UPROPERTY(BlueprintReadOnly, Category = "AI|Maslow|Threat")
+    float ThreatExpiryTime = 0.0f;
+
+    /** Zgłoś zagrożenie (damage-hook / percepcja L0-04). Zapisuje aktora+pozycję+typ, przedłuża okno ucieczki. */
+    UFUNCTION(BlueprintCallable, Category = "AI|Maslow|Threat")
+    void SetThreat(AActor* InThreatActor, EThreatType Type);
+
+    /** Wyczyść zagrożenie (np. dotarcie do Safe Zone / threat zniknął). */
+    UFUNCTION(BlueprintCallable, Category = "AI|Maslow|Threat")
+    void ClearThreat();
+
+    /** Czy jest aktywne zagrożenie (w oknie ThreatMemoryDuration). Czytane przez EvaluateCurrentNeed. */
+    UFUNCTION(BlueprintPure, Category = "AI|Maslow|Threat")
+    bool IsThreatActive() const;
+
+    /** Pozycja, OD której uciekać (żywy ThreatActor jeśli ważny, inaczej cache). Czyta BTTask_Flee. */
+    UFUNCTION(BlueprintPure, Category = "AI|Maslow|Threat")
+    FVector GetThreatLocation() const;
+
+    /** Wizual paniki/ucieczki (BP rysuje krzyk/sprint). Odpalane przez BTTask_Flee na wejściu. */
+    UFUNCTION(BlueprintImplementableEvent, Category = "Biology|Events|Threat")
+    void OnPanicFlee();
+
+    /** Bound do GetOwner()->OnTakeAnyDamage w BeginPlay: KAŻDE ApplyDamage → SetThreat(causer, Damage). */
+    UFUNCTION()
+    void HandleAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType,
+        class AController* InstigatedBy, AActor* DamageCauser);
+
     // ==== AMBIENT TEMP (rdzeń strefowy + sprzężenie otoczenie→ciało) ====
 
     /** Temperatura OTOCZENIA NPC (°C) = baza strefy (cache) + offset doby. Liczona na timerze metabolizmu. */
@@ -455,6 +522,24 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Biology|Vitals")
     float CurrentStamina;
+
+    // ==== STAMINA = GATE PRĘDKOŚCI (TASK 2, D1 follow-up) ====
+    // Stamina NIE routuje już do potrzeb (wycięta z drabiny — sen jest na HoursAwake). Nowa rola:
+    // wyczerpanie fizyczne akcją → wolniejszy ruch / brak sprintu. Drenowana CurrentActionStaminaCost
+    // na kadencji metabolizmu, regenerowana w spoczynku. Ruch (BP) czyta GetStaminaSpeedMultiplier()
+    // (wzorzec jak GetWorkEfficiencyMultiplier — C++ liczy, BP konsumuje). Próg krytyczny niżej (legacy).
+
+    /** Regeneracja Staminy na 1 tick metabolizmu, gdy NPC NIE wykonuje męczącej akcji (CurrentActionStaminaCost<=0). [tune] */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Biology|Vitals")
+    float StaminaRegenPerTick = 8.0f;
+
+    /** Dolny mnożnik prędkości przy Staminie=0 (wyczerpany NPC nadal idzie, ale wolno). 1.0 przy pełnej. [approved 0.5] */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Biology|Vitals")
+    float StaminaMinSpeedMultiplier = 0.5f;
+
+    /** Mnożnik prędkości ruchu z bieżącej Staminy: Lerp(MinSpeedMult..1.0 po Stamina/100). BP-ruch czyta to. */
+    UFUNCTION(BlueprintPure, Category = "AI|Maslow|Vitals")
+    float GetStaminaSpeedMultiplier() const;
 
     // Funkcje
     UFUNCTION(BlueprintCallable, Category = "AI|Maslow")
@@ -658,8 +743,11 @@ public:
     bool bIsInPanic = false;
 
     // Magia: To pojawi się w Blueprintach jako gotowy Nód do wyciągnięcia
+    // bActionableOnly (F2 fix, TASK 2 follow-up): gdy true, POMIŃ poziomy bez BT-akcji (Temperature dziś)
+    // i schodź do następnej ACTIONABLE potrzeby. GetActionableNeed woła z true → zmarznięty NPC nie zwraca
+    // już need=0 (bezczynne marznięcie), lecz realizuje jedzenie/picie/sen. Domyślnie false = pełna drabina (HUD/przyszłość).
     UFUNCTION(BlueprintCallable, Category = "AI|Maslow")
-    EMaslowPriority EvaluateCurrentNeed();
+    EMaslowPriority EvaluateCurrentNeed(bool bActionableOnly = false);
 
     // ---- Maslow -> BT bridge (slice #1, pragnienie): CONCRETE actionable need for the BT ----
     // Returns the FIRST need hit while walking the Maslow pyramid TOP-DOWN
@@ -681,6 +769,24 @@ public:
     // (posiłek abstrakcyjny/test). C++ NIE dotyka animacji.
     UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
     void StartEating(AActor* Food, const FFoodItemRow& Meal, int32 BiteCount);
+
+    // APPETITE slice 1b — wiring helper: resolves Food's FoodTableRowName from FoodTable → FFoodItemRow,
+    // then StartEating. Keeps the struct/data resolution in C++ (brain), so the BT/BP eat task calls ONE
+    // clean node (no wildcard struct/data-table pins in Blueprint). Returns false AND does NOT start when
+    // Food is invalid, FoodTable is null, or the row is not found — BP gates the eat montage on this bool
+    // (false → no PlaySlotAnimationAsDynamicMontage → no silent hang over an empty meal). Data-driven:
+    // the row id is read from the item (Food->FoodTableRowName), never hardcoded.
+    UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
+    bool StartEatingItem(AItemBase* Food, UDataTable* FoodTable, int32 BiteCount);
+
+    // UTILITY — NOT biology. Lives here only as a pragmatic home (no UBlueprintFunctionLibrary in the
+    // module yet, and a dedicated file for one 3-liner is disproportionate). MOVE to a BP function library
+    // if more such utils accrue. Removes null/!IsValid entries from an actor array (by ref) and returns the
+    // new count. Used to prune BP_NPC_AI's perception-built Food array (perception only Adds, never removes
+    // → HowMuchFood would lie + the array would leak nulls; see ROADMAP TECH-11). Typed array pin (not
+    // wildcard) so it is Blueprint-authorable via tooling. Static: no Maslow state touched.
+    UFUNCTION(BlueprintCallable, Category = "Utility")
+    static int32 CompactNullActors(UPARAM(ref) TArray<AActor*>& Actors);
 
     // Jedno ugryzienie — wołane z AnimNotify (naturalny zegar gryzień, zero nowego timera). Deponuje makra
     // jednego kęsa, rośnie StomachFill, dekrementuje porcję itemu. Auto-stop przy sytości / wyczerpaniu.
