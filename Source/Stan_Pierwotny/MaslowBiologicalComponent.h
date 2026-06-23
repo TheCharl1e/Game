@@ -334,6 +334,10 @@ public:
     UFUNCTION(BlueprintImplementableEvent, Category = "Biology|Events|Sleep")
     void OnRested();
 
+    /** Poza snu DOBROWOLNEGO start (sen napędzany przez BT via StartSleep). Omdlenie/ragdoll używa OnCollapse. */
+    UFUNCTION(BlueprintImplementableEvent, Category = "Biology|Events|Sleep")
+    void OnSleepStart();
+
     // ==== AMBIENT TEMP (rdzeń strefowy + sprzężenie otoczenie→ciało) ====
 
     /** Temperatura OTOCZENIA NPC (°C) = baza strefy (cache) + offset doby. Liczona na timerze metabolizmu. */
@@ -456,6 +460,24 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Biology|Vitals")
     float CurrentStamina;
+
+    // ==== STAMINA = GATE PRĘDKOŚCI (TASK 2, D1 follow-up) ====
+    // Stamina NIE routuje już do potrzeb (wycięta z drabiny — sen jest na HoursAwake). Nowa rola:
+    // wyczerpanie fizyczne akcją → wolniejszy ruch / brak sprintu. Drenowana CurrentActionStaminaCost
+    // na kadencji metabolizmu, regenerowana w spoczynku. Ruch (BP) czyta GetStaminaSpeedMultiplier()
+    // (wzorzec jak GetWorkEfficiencyMultiplier — C++ liczy, BP konsumuje). Próg krytyczny niżej (legacy).
+
+    /** Regeneracja Staminy na 1 tick metabolizmu, gdy NPC NIE wykonuje męczącej akcji (CurrentActionStaminaCost<=0). [tune] */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Biology|Vitals")
+    float StaminaRegenPerTick = 8.0f;
+
+    /** Dolny mnożnik prędkości przy Staminie=0 (wyczerpany NPC nadal idzie, ale wolno). 1.0 przy pełnej. [approved 0.5] */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Biology|Vitals")
+    float StaminaMinSpeedMultiplier = 0.5f;
+
+    /** Mnożnik prędkości ruchu z bieżącej Staminy: Lerp(MinSpeedMult..1.0 po Stamina/100). BP-ruch czyta to. */
+    UFUNCTION(BlueprintPure, Category = "AI|Maslow|Vitals")
+    float GetStaminaSpeedMultiplier() const;
 
     // Funkcje
     UFUNCTION(BlueprintCallable, Category = "AI|Maslow")

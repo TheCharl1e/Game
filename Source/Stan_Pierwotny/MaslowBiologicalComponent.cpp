@@ -128,6 +128,18 @@ void UMaslowBiologicalComponent::ProcessMetabolism()
     }
     UpdateFatigue();
 
+    // STAMINA (TASK 2): gate PRĘDKOŚCI, nie potrzeba. Drenowana kosztem męczącej akcji (CurrentActionStaminaCost
+    // z DT akcji, dotąd liczony lecz NIEaplikowany), regenerowana w spoczynku/śnie. Czytana przez BP-ruch via
+    // GetStaminaSpeedMultiplier(). Wycięta z drabiny potrzeb (EvaluateCurrentNeed) — patrz D1.
+    if (CurrentActionStaminaCost > 0.0f)
+    {
+        CurrentStamina = FMath::Clamp(CurrentStamina - CurrentActionStaminaCost, 0.0f, 100.0f);
+    }
+    else
+    {
+        CurrentStamina = FMath::Clamp(CurrentStamina + StaminaRegenPerTick, 0.0f, 100.0f);
+    }
+
     // Spalanie wody (zachowane z poprzedniej iteracji + Mnożnik Aktywności)
     float TotalHydrationBurn = HydrationBurnRatePerTick * CurrentActionHydrationMultiplier;
     
@@ -332,6 +344,14 @@ void UMaslowBiologicalComponent::UpdateFatigue()
         HandleFatigueTransition(Prev, FatigueState);
     }
 
+    // D2 (TASK 2): WYBUDZENIE MIMOWOLNE z omdlenia. Collapse ustawił bIsSleeping (sen wymuszony) → HoursAwake
+    // malało powyżej; gdy w pełni odespane, C++ SAM budzi (StopSleep: znosi bIncapacitated, RestartLogic wznawia
+    // BT, OnWakeUp). To JEDYNE wyjście z pułapki omdlenia — BT był StopLogic'owany, więc sen dobrowolny (BT) nie zadziała.
+    if (bIncapacitated && HoursAwake <= KINDA_SMALL_NUMBER)
+    {
+        StopSleep();
+    }
+
     // Mikrosen: losowo, tylko na jawie, ≥ próg mikrosnów, i NIE gdy omdlały (Collapsed nadpisuje).
     if (!bIsSleeping && !bMicrosleeping && !bIncapacitated && HoursAwake >= MicrosleepThreshold
         && FMath::FRand() < MicrosleepChancePerTick)
@@ -352,6 +372,11 @@ void UMaslowBiologicalComponent::HandleFatigueTransition(EFatigueState PrevState
     if (NewState == EFatigueState::Collapsed && PrevState != EFatigueState::Collapsed)
     {
         bIncapacitated = true;
+        // D2 (TASK 2): omdlenie = SEN WYMUSZONY. Bez tego UpdateFatigue dalej NARASTAŁOby HoursAwake
+        // (gałąź !bIsSleeping) → NPC nigdy się nie wybudza (StopLogic zabił BT, StopSleep nikt nie wołał).
+        // Z bIsSleeping=true HoursAwake MALEJE co tick, a UpdateFatigue auto-woła StopSleep przy ~0
+        // (wznawia BT, OnWakeUp). C++ posiada wybudzenie MIMOWOLNE; BT posiada tylko sen DOBROWOLNY.
+        bIsSleeping = true;
         if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
         {
             if (AAIController* AC = Cast<AAIController>(OwnerPawn->GetController()))
@@ -502,6 +527,7 @@ void UMaslowBiologicalComponent::StartSleep()
     }
     bIsSleeping = true;
     bIsRested = false;   // buff zużyty w chwili zaśnięcia; odzyskany dopiero po wyspaniu
+    OnSleepStart();      // D6 (TASK 2): poza snu dobrowolnego (BP). Omdlenie ma osobny wizual (OnCollapse/ragdoll).
     UE_LOG(LogMaslow, Log, TEXT("[Sleep] %s: zasypia (HoursAwake=%.2f, temp=%.1f, jakość=%.2f)."),
         GetOwner() ? *GetOwner()->GetName() : TEXT("?"), HoursAwake, CurrentTemp, GetTempQualityMultiplier());
 }
@@ -541,6 +567,14 @@ void UMaslowBiologicalComponent::StopSleep()
     }
     UE_LOG(LogMaslow, Log, TEXT("[Sleep] %s: budzi się (HoursAwake=%.2f, Rested=%d)."),
         GetOwner() ? *GetOwner()->GetName() : TEXT("?"), HoursAwake, bIsRested ? 1 : 0);
+}
+
+float UMaslowBiologicalComponent::GetStaminaSpeedMultiplier() const
+{
+    // TASK 2: Stamina → prędkość ruchu. Lerp(MinSpeedMult .. 1.0) po znormalizowanej Staminie (0..100).
+    // Wyczerpany NPC idzie wolno (MinSpeedMult), nie staje. BP-ruch mnoży MaxWalkSpeed przez to.
+    const float Norm = FMath::Clamp(CurrentStamina / 100.0f, 0.0f, 1.0f);
+    return FMath::Lerp(StaminaMinSpeedMultiplier, 1.0f, Norm);
 }
 
 void UMaslowBiologicalComponent::ResolveAwakeRateFromWorldClock()
@@ -708,8 +742,10 @@ EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed()
         return EMaslowPriority::Level_1_Hydration;
     }
 
-    // 3. Wyczerpanie prowadzi do omdlenia, po czym zjada nas wilk
-    if (CurrentStamina <= CriticalStaminaThreshold)
+    // 3. Zmęczenie (HoursAwake) — sen jest JEDYNĄ osią, którą sen realnie regeneruje (D1, TASK 2 2026-06-23).
+    //    Próg = MentalFogThreshold (16h): NPC szuka snu od mgły umysłowej, ZANIM dojdzie do mikrosnów/omdlenia.
+    //    CurrentStamina WYCIĘTA z drabiny potrzeb — teraz wyłącznie gate prędkości (GetStaminaSpeedMultiplier).
+    if (HoursAwake >= MentalFogThreshold)
     {
         return EMaslowPriority::Level_1_Rest;
     }
