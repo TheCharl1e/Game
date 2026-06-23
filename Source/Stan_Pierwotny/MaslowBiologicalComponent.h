@@ -681,8 +681,11 @@ public:
     bool bIsInPanic = false;
 
     // Magia: To pojawi się w Blueprintach jako gotowy Nód do wyciągnięcia
+    // bActionableOnly (F2 fix, TASK 2 follow-up): gdy true, POMIŃ poziomy bez BT-akcji (Temperature dziś)
+    // i schodź do następnej ACTIONABLE potrzeby. GetActionableNeed woła z true → zmarznięty NPC nie zwraca
+    // już need=0 (bezczynne marznięcie), lecz realizuje jedzenie/picie/sen. Domyślnie false = pełna drabina (HUD/przyszłość).
     UFUNCTION(BlueprintCallable, Category = "AI|Maslow")
-    EMaslowPriority EvaluateCurrentNeed();
+    EMaslowPriority EvaluateCurrentNeed(bool bActionableOnly = false);
 
     // ---- Maslow -> BT bridge (slice #1, pragnienie): CONCRETE actionable need for the BT ----
     // Returns the FIRST need hit while walking the Maslow pyramid TOP-DOWN

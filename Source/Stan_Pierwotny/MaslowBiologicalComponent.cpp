@@ -717,7 +717,7 @@ float UMaslowBiologicalComponent::GetFatPercent() const
 }
 
 // Główna funkcja decyzyjna (Sędzia Maslowa)
-EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed()
+EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed(bool bActionableOnly)
 {
     // POZIOM 0: Przerwanie Krytyczne (Panic) - Nadpisuje wszystko.
     // Two layers (L3-02): (1) bIsInPanic = Neuroticism latch, rolled on metabolism cadence;
@@ -730,8 +730,11 @@ EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed()
 
     // POZIOM 1: Fizjologia (Sprawdzamy od najszybciej zabijającego czynnika)
 
-    // 1. Zamarznięcie zabija najszybciej
-    if (CurrentTemp <= CriticalTempThreshold)
+    // 1. Zamarznięcie zabija najszybciej. F2: Temperature NIE MA dziś BT-akcji (temperature slice TODO).
+    //    Gdy bActionableOnly (z GetActionableNeed) → POMIŃ, by zmarznięty NPC nie zwracał need=0 i nie marzł
+    //    bezczynnie, lecz realizował niższą ACTIONABLE potrzebę (pić/jeść/spać). Hipotermia C++ (cold-burn,
+    //    obrażenia) działa niezależnie od tej gałęzi. Pełna drabina (bez flagi) wciąż zwraca Temperature dla HUD.
+    if (!bActionableOnly && CurrentTemp <= CriticalTempThreshold)
     {
         return EMaslowPriority::Level_1_Temperature;
     }
@@ -771,7 +774,9 @@ EMaslowPriority UMaslowBiologicalComponent::EvaluateCurrentNeed()
 //   0 = None, 1 = Hunger, 2 = Thirst, 3 = Sleep, 4 = Flee.
 uint8 UMaslowBiologicalComponent::GetActionableNeed()
 {
-    switch (EvaluateCurrentNeed())
+    // F2: bActionableOnly=true → drabina pomija niezaimplementowane poziomy (Temperature) i schodzi do
+    // następnej potrzeby z gałęzią BT. Bez tego zmarznięty NPC zwracał need=0 i marzł bezczynnie.
+    switch (EvaluateCurrentNeed(/*bActionableOnly=*/true))
     {
         case EMaslowPriority::Level_0_FightOrFlight: return 4; // Flee  (E_NeedState entry 4: name UNVERIFIED; branch disconnected in slice #1 — harmless, no decorator matches 4)
         case EMaslowPriority::Level_1_Hydration:     return 2; // Thirst  <-- slice #1 wired branch
