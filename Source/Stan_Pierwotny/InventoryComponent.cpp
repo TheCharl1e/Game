@@ -326,6 +326,20 @@ FName UInventoryComponent::GetEquippedItem(EEquipmentSlot Slot) const
 	return (Found) ? Found->ItemID : NAME_None;
 }
 
+float UInventoryComponent::GetTotalEquippedInsulation() const
+{
+	// L1-09a: suma Insulation po WSZYSTKICH założonych itemach (bez wag per-slot — decyzja dyrektora).
+	float Total = 0.0f;
+	for (const TPair<EEquipmentSlot, FItemStack>& Pair : EquippedItems)
+	{
+		if (const FItemDefinition* Def = FindDefinition(Pair.Value.ItemID))
+		{
+			Total += Def->Insulation;
+		}
+	}
+	return Total;
+}
+
 bool UInventoryComponent::EquipItem(FName ItemID, EEquipmentSlot Slot)
 {
 	const FItemDefinition* Def = FindDefinition(ItemID);

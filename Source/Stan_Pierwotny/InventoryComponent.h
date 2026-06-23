@@ -80,6 +80,12 @@ struct FItemDefinition : public FTableRowBase
 	/** Which equipment slot this item can be equipped to. None = not equippable. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Storage")
 	EEquipmentSlot ValidEquipSlot = EEquipmentSlot::None;
+
+	/** L1-09a: izolacja cieplna gdy equipped. Sumowana po wszystkich założonych itemach (bez wag per-slot),
+	 *  ODEJMOWANA od mnożnika stygnięcia w Maslow: InsulationFactor = clamp(BaseFromFat − ΣInsulation, floor, 1).
+	 *  Niższy InsulationFactor = cieplej. Tier (propozycja): Lekkie 0.2 / Średnie 0.4 / Ciężkie 0.6. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item|Temperature", meta = (ClampMin = "0.0"))
+	float Insulation = 0.0f;
 };
 
 /** Runtime payload: an item ID + count. */
@@ -232,6 +238,11 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Inventory|Equipment")
 	bool IsSlotOccupied(EEquipmentSlot Slot) const;
+
+	/** L1-09a: Σ Insulation wszystkich założonych itemów (bez wag per-slot). Czytane przez Maslow co kadencję
+	 *  do InsulationFactor = clamp(BaseFromFat − to, floor, 1). 0 = nagi. */
+	UFUNCTION(BlueprintPure, Category = "Inventory|Equipment")
+	float GetTotalEquippedInsulation() const;
 
 	// --- Ownership-aware access (feeds the L5 detective system) -----------
 

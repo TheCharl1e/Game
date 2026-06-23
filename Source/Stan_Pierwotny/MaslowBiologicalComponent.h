@@ -550,6 +550,10 @@ private:
     UPROPERTY()
     TObjectPtr<class UCharacterMovementComponent> CachedMovement = nullptr;
 
+    /** Cache InventoryComponent właściciela (L1-09a: Σ izolacji ubrania co kadencję, bez FindComponentByClass per tick). */
+    UPROPERTY()
+    TObjectPtr<class UInventoryComponent> CachedInventory = nullptr;
+
     /** MaxWalkSpeed = BaseWalkSpeed×Stamina; 0 gdy śpi/mikrosen/omdlały (L1-08). Woła kadencja + przejścia snu. */
     void ApplyMovementSpeedForState();
 
@@ -699,6 +703,12 @@ public:
     // Most fat→izolacja (część D): BodyFat 0..Max → InsulationFactor 1.0..MinInsulationFromFat.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.0", ClampMax="1.0"), Category = "Biology|Appetite")
     float MinInsulationFromFat = 0.6f;    // maks otyłość = mocna izolacja (wolniej stygnie)
+
+    // L1-09a clothing: najcieplejszy możliwy InsulationFactor (clamp od dołu) gdy ubranie schodzi poniżej bazy-tłuszczu.
+    // 0.1 (nie 0.2): inaczej gruby+średnie i gruby+ciężkie obie dobijają do floora = identyczne (kurtka bezsensowna
+    // przy skórach). 0.1 → ciężkie wciąż bije średnie u grubego, a ≠0 (nie cold-immune). [tuning dyrektora]
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.0", ClampMax="1.0"), Category = "Biology|Temperature")
+    float FloorInsulation = 0.1f;
 
     // Tłuszcz na spawnie — ROZDZIELONY od MaxBodyFat (=5000). Default 1500 (~30% maxa): start ≠ max,
     // autofagia osiągalna, izolacja spawnu ≈ Lerp(1.0, 0.6, 0.3) = 0.88. EditDefaultsOnly → przyszła
