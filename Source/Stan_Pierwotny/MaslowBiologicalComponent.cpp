@@ -7,6 +7,7 @@
 #include "GameFramework/Pawn.h"     // ETAP 2: omdlenie — dostęp do kontrolera pawna
 #include "AIController.h"            // ETAP 2: zatrzymanie/wznowienie Behavior Tree
 #include "BrainComponent.h"         // ETAP 2: StopLogic / RestartLogic
+#include "GameFramework/CharacterMovementComponent.h" // L1-08: stan metaboliczny → MaxWalkSpeed
 #include "Map/CaldrethZone.h"       // AmbientTemp: GetZoneAtLocation + FZoneDef.BaseTemp
 #include "NPC/NPCIdentityComponent.h" // L3-02: read Neuroticism for the panic roll
 #include "ItemBase.h"               // APPETITE slice 1: nadgryzienie itemu (Cast<AItemBase> w ConsumeBite)
@@ -73,6 +74,14 @@ void UMaslowBiologicalComponent::BeginPlay()
     if (AActor* DamageOwner = GetOwner())
     {
         DamageOwner->OnTakeAnyDamage.AddDynamic(this, &UMaslowBiologicalComponent::HandleAnyDamage);
+
+        // L1-08: cache komponentu ruchu + bazowej prędkości. MaxWalkSpeed skalujemy od niej przez Staminę
+        // (wyczerpany NPC wolniej, mikrosen/sen/omdlenie = 0). FindComponentByClass raz, NIE per tick.
+        CachedMovement = DamageOwner->FindComponentByClass<UCharacterMovementComponent>();
+        if (CachedMovement && BaseWalkSpeed <= 0.0f)
+        {
+            BaseWalkSpeed = CachedMovement->MaxWalkSpeed;
+        }
     }
 
     // Hunger warstwa 1: seed the felt-hunger threshold to the (designer-edited) calm baseline so the judge
@@ -148,6 +157,10 @@ void UMaslowBiologicalComponent::ProcessMetabolism()
     {
         CurrentStamina = FMath::Clamp(CurrentStamina + StaminaRegenPerTick, 0.0f, 100.0f);
     }
+
+    // L1-08: po zaktualizowaniu Staminy + drabiny zmęczenia (UpdateFatigue ustawił mikrosen/omdlenie) —
+    // przełóż stan na prędkość ruchu. (Mikrosen jest sub-kadencyjny → woła też Trigger/EndMicrosleep.)
+    ApplyMovementSpeedForState();
 
     // Spalanie wody (zachowane z poprzedniej iteracji + Mnożnik Aktywności)
     float TotalHydrationBurn = HydrationBurnRatePerTick * CurrentActionHydrationMultiplier;
@@ -406,6 +419,7 @@ void UMaslowBiologicalComponent::HandleFatigueTransition(EFatigueState PrevState
 void UMaslowBiologicalComponent::TriggerMicrosleep()
 {
     bMicrosleeping = true;
+    ApplyMovementSpeedForState();   // L1-08: mikrosen = zamarcie (MaxWalkSpeed 0) natychmiast, nie czekając na kadencję
     OnMicrosleep();   // BP rysuje kiwnięcie głową / "zamarcie"
     UE_LOG(LogMaslow, Log, TEXT("[Sleep] %s: mikrosen (HoursAwake=%.2f, %.1fs)."),
         GetOwner() ? *GetOwner()->GetName() : TEXT("?"), HoursAwake, MicrosleepDuration);
@@ -419,6 +433,7 @@ void UMaslowBiologicalComponent::TriggerMicrosleep()
 void UMaslowBiologicalComponent::EndMicrosleep()
 {
     bMicrosleeping = false;
+    ApplyMovementSpeedForState();   // L1-08: koniec mikrosnu → przywróć prędkość (Stamina-skalowaną)
     OnMicrosleepEnd();
 }
 
@@ -536,6 +551,7 @@ void UMaslowBiologicalComponent::StartSleep()
     }
     bIsSleeping = true;
     bIsRested = false;   // buff zużyty w chwili zaśnięcia; odzyskany dopiero po wyspaniu
+    ApplyMovementSpeedForState();  // L1-08: zasypiając, zatrzymaj ruch (MaxWalkSpeed 0)
     OnSleepStart();      // D6 (TASK 2): poza snu dobrowolnego (BP). Omdlenie ma osobny wizual (OnCollapse/ragdoll).
     UE_LOG(LogMaslow, Log, TEXT("[Sleep] %s: zasypia (HoursAwake=%.2f, temp=%.1f, jakość=%.2f)."),
         GetOwner() ? *GetOwner()->GetName() : TEXT("?"), HoursAwake, CurrentTemp, GetTempQualityMultiplier());
@@ -569,6 +585,7 @@ void UMaslowBiologicalComponent::StopSleep()
         }
     }
 
+    ApplyMovementSpeedForState();  // L1-08: po przebudzeniu przywróć prędkość (Stamina-skalowaną)
     OnWakeUp();
     if (bFullyRested)
     {
@@ -584,6 +601,18 @@ float UMaslowBiologicalComponent::GetStaminaSpeedMultiplier() const
     // Wyczerpany NPC idzie wolno (MinSpeedMult), nie staje. BP-ruch mnoży MaxWalkSpeed przez to.
     const float Norm = FMath::Clamp(CurrentStamina / 100.0f, 0.0f, 1.0f);
     return FMath::Lerp(StaminaMinSpeedMultiplier, 1.0f, Norm);
+}
+
+void UMaslowBiologicalComponent::ApplyMovementSpeedForState()
+{
+    // L1-08: stan metaboliczny → realna prędkość. Wyczerpany NPC (niska Stamina) idzie wolniej;
+    // sen/mikrosen/omdlenie = zamarcie (0). Bez tego Stamina/sen były policzone, ale niewidoczne.
+    if (!IsValid(CachedMovement) || BaseWalkSpeed <= 0.0f)
+    {
+        return;
+    }
+    const bool bImmobile = (bIsSleeping || bMicrosleeping || bIncapacitated);
+    CachedMovement->MaxWalkSpeed = bImmobile ? 0.0f : (BaseWalkSpeed * GetStaminaSpeedMultiplier());
 }
 
 // ==== FLEE / ZAGROŻENIE (TASK 3) ====
