@@ -21,10 +21,13 @@ class STAN_PIERWOTNY_API UContractPoolSubsystem : public UWorldSubsystem
     GENERATED_BODY()
 
 public:
-    /** Post a barter offer. Returns the new ContractId (0 on failure). */
+    /** Post a barter offer. Returns the new ContractId (0 on failure).
+     *  BlueprintCallable: drivable by C++ trader, a debug HUD, or live PIE verification. */
+    UFUNCTION(BlueprintCallable, Category = "P2P")
     int32 PostContract(int32 PosterID, FName OfferItem, int32 OfferAmount, EItemType WantType, int32 WantAmount);
 
     /** Cancel a contract (poster withdrew / goods gone). Idempotent. */
+    UFUNCTION(BlueprintCallable, Category = "P2P")
     void CancelContract(int32 ContractId);
 
     /** Snapshot of all Open contracts (for traders to scan). */
@@ -32,6 +35,7 @@ public:
     TArray<FContract> GetOpenContracts() const;
 
     /** Does this poster already have an Open contract? (avoid duplicate posts). */
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "P2P")
     bool HasOpenContractFrom(int32 PosterID) const;
 
     /**
@@ -39,6 +43,7 @@ public:
      * wanted type, then does the VIRTUAL swap (RemoveItem+AddItem both ways) and marks it Fulfilled.
      * Returns true on a completed trade. Self-cancels the contract if the poster no longer has the goods.
      */
+    UFUNCTION(BlueprintCallable, Category = "P2P")
     bool AcceptAndFulfill(int32 ContractId, int32 AccepterID);
 
     /** Live contract count (debug/telemetry). */
