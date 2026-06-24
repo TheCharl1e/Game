@@ -340,6 +340,47 @@ float UInventoryComponent::GetTotalEquippedInsulation() const
 	return Total;
 }
 
+// --- P2P barter helpers (L3-05) -------------------------------------------
+EItemType UInventoryComponent::GetItemTypeForID(FName ItemID) const
+{
+	const FItemDefinition* Def = FindDefinition(ItemID);
+	return Def ? Def->Type : EItemType::None;
+}
+
+FName UInventoryComponent::FindFirstHeldItemOfType(EItemType Type, int32 MinAmount) const
+{
+	for (const FStorageCompartment& Comp : Compartments)
+	{
+		for (const FItemStack& Stack : Comp.Contents)
+		{
+			if (Stack.Quantity >= MinAmount && GetItemTypeForID(Stack.ItemID) == Type)
+			{
+				return Stack.ItemID;
+			}
+		}
+	}
+	return NAME_None;
+}
+
+FName UInventoryComponent::FindFirstHeldItemNotOfType(EItemType ExcludeType, int32 MinAmount) const
+{
+	for (const FStorageCompartment& Comp : Compartments)
+	{
+		for (const FItemStack& Stack : Comp.Contents)
+		{
+			if (Stack.Quantity >= MinAmount)
+			{
+				const EItemType T = GetItemTypeForID(Stack.ItemID);
+				if (T != ExcludeType && T != EItemType::None)
+				{
+					return Stack.ItemID;
+				}
+			}
+		}
+	}
+	return NAME_None;
+}
+
 bool UInventoryComponent::EquipItem(FName ItemID, EEquipmentSlot Slot)
 {
 	const FItemDefinition* Def = FindDefinition(ItemID);

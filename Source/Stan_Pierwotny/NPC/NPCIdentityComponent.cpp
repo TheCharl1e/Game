@@ -1,5 +1,6 @@
 #include "NPCIdentityComponent.h"
 #include "NPCRegistrySubsystem.h"
+#include "InventoryComponent.h"   // L3-05: stamp ownership with the registry ID
 #include "GameFramework/Character.h"
 
 UNPCIdentityComponent::UNPCIdentityComponent()
@@ -33,6 +34,15 @@ void UNPCIdentityComponent::BeginPlay()
     }
 
     NPCId = Registry->RegisterNPC(OwnerChar);
+
+    // L3-05 P2P: the inventory's OwnerID IS the registry ID — so the contract pool can resolve a
+    // poster/accepter back to their inventory by NPC ID, and theft (L5) attributes to a real identity.
+    // Order-safe: UInventoryComponent::BeginPlay never touches OwnerID, so this set persists regardless
+    // of component BeginPlay order.
+    if (UInventoryComponent* Inv = OwnerChar->FindComponentByClass<UInventoryComponent>())
+    {
+        Inv->OwnerID = NPCId;
+    }
 }
 
 void UNPCIdentityComponent::EndPlay(const EEndPlayReason::Type Reason)
