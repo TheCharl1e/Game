@@ -8,8 +8,8 @@ public class Stan_PierwotnyTarget : TargetRules
 	public Stan_PierwotnyTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
-		DefaultBuildSettings = BuildSettingsVersion.V6;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_7;
+		DefaultBuildSettings = BuildSettingsVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;
 
 		ExtraModuleNames.AddRange( new string[] { "Stan_Pierwotny" } );
 	}

@@ -8,8 +8,8 @@ public class Stan_PierwotnyEditorTarget : TargetRules
 	public Stan_PierwotnyEditorTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
-		DefaultBuildSettings = BuildSettingsVersion.V6;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_7;
+		DefaultBuildSettings = BuildSettingsVersion.Latest;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;
 
 		ExtraModuleNames.AddRange( new string[] { "Stan_Pierwotny", "Stan_PierwotnyEditor" } );
 	}

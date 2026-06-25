@@ -3,12 +3,29 @@
 #include "EnvironmentQuery/EnvQuery.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 #include "GameFramework/Actor.h"
 
 DEFINE_LOG_CATEGORY(LogEQSBudget);
 
+void UEQSBudgetManager::OnWorldBeginPlay(UWorld& InWorld)
+{
+	Super::OnWorldBeginPlay(InWorld);
+
+	// Deterministic leak recovery (NOT lazy): periodically reclaim in-flight slots whose requester died.
+	if (ReclaimInterval > 0.f)
+	{
+		InWorld.GetTimerManager().SetTimer(
+			ReclaimTimerHandle, this, &UEQSBudgetManager::ReclaimDeadSlots, ReclaimInterval, /*loop*/ true);
+	}
+}
+
 void UEQSBudgetManager::Deinitialize()
 {
+	if (const UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(ReclaimTimerHandle);
+	}
 	// Abort anything still in flight so no EQS completion fires into a torn-down manager.
 	if (UWorld* World = GetWorld())
 	{
@@ -138,4 +155,26 @@ void UEQSBudgetManager::OnQueryFinished(TSharedPtr<FEnvQueryResult> Result)
 			A.Handle, Queue.Num(), Active.Num(), MaxConcurrent);
 	}
 	DispatchNext();
+}
+
+void UEQSBudgetManager::ReclaimDeadSlots()
+{
+	// Deterministic recovery for the one path OnQueryFinished can't cover: an in-flight query whose requester
+	// died and whose EQS was silently dropped (finish delegate never fired) -> the Active slot would leak
+	// forever. Walk Active (<= MaxConcurrent), abort + free any entry with a dead requester. No per-NPC scan.
+	UEnvQueryManager* EQSMgr = nullptr;
+	if (UWorld* World = GetWorld()) { EQSMgr = UEnvQueryManager::GetCurrent(World); }
+
+	bool bFreedAny = false;
+	for (int32 i = Active.Num() - 1; i >= 0; --i)
+	{
+		if (Active[i].Requester.IsValid()) { continue; }
+		if (EQSMgr) { EQSMgr->AbortQuery(Active[i].EqsQueryId); }
+		UE_LOG(LogEQSBudget, Warning,
+			TEXT("[EQSBudget] Reclaimed leaked slot handle=%d (requester died in-flight; query never finished)."),
+			Active[i].Handle);
+		Active.RemoveAtSwap(i, EAllowShrinking::No);
+		bFreedAny = true;
+	}
+	if (bFreedAny) { DispatchNext(); }
 }

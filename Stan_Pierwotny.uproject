@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "5.7",
+	"EngineAssociation": "5.8",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -22,11 +22,11 @@
 		},
 		{
 			"Name": "LudusAI",
-			"Enabled": true
+			"Enabled": false
 		},
 		{
 			"Name": "VisualStudioTools",
-			"Enabled": true,
+			"Enabled": false,
 			"SupportedTargetPlatforms": [
 				"Win64"
 			],
@@ -51,6 +51,14 @@
 		{
 			"Name": "DynamicWind",
 			"Enabled": true
+		},
+		{
+			"Name": "Monolith",
+			"Enabled": false
+		},
+		{
+			"Name": "MCPUnreal",
+			"Enabled": false
 		}
 	]
 }

@@ -265,7 +265,17 @@ void UWorldAffordanceSubsystem::RegenTick()
 	const float GameHours = RegenInterval / 3600.f;
 	for (FAffordanceHandle& H : Affordances)
 	{
-		if (H.Type == EAffordanceType::None || H.RegenPerHour <= 0.f) { continue; }
+		if (H.Type == EAffordanceType::None) { continue; }
+
+		// Dead-reserver claim release is LAZY in QueryNearest/TryReserve; ACTIVELY prune the stale field here
+		// on the existing walk (no new per-NPC scan) so a reserver that died without Release frees the slot.
+		if (H.ReservedBy != INDEX_NONE && !H.ReservedByActor.IsValid())
+		{
+			H.ReservedBy = INDEX_NONE;
+			H.ReservedByActor = nullptr;
+		}
+
+		if (H.RegenPerHour <= 0.f) { continue; }
 		if (H.RemainingYield >= H.MaxYield) { continue; }
 		H.RemainingYield = FMath::Min(H.MaxYield, H.RemainingYield + H.RegenPerHour * GameHours);
 		if (H.RemainingYield > KINDA_SMALL_NUMBER) { H.bExhaustLogged = false; } // regrew -> allow exhaust log again

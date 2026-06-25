@@ -27,6 +27,7 @@ class STAN_PIERWOTNY_API UEQSBudgetManager : public UWorldSubsystem
 	GENERATED_BODY()
 
 public:
+	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 	virtual void Deinitialize() override;
 
 	/** Queue an EQS run. Returns a stable handle (>0) for CancelQuery, or INDEX_NONE on bad input.
@@ -40,6 +41,12 @@ public:
 	/** Max EQS runs in flight at once. THE knob that makes load scale with budget, not NPC count. */
 	UPROPERTY(EditAnywhere, Category = "Budget")
 	int32 MaxConcurrent = 12;
+
+	/** Seconds between reclaim sweeps. Belt-and-suspenders: an in-flight slot whose requester died and whose
+	 *  EQS never fired its finish delegate would leak permanently (no lazy recovery) and, after MaxConcurrent
+	 *  deaths, starve exploration. The sweep aborts + frees such slots deterministically. [TBD→tune] */
+	UPROPERTY(EditAnywhere, Category = "Budget")
+	float ReclaimInterval = 5.f;
 
 private:
 	struct FPendingQuery
@@ -62,6 +69,7 @@ private:
 	TArray<FPendingQuery> Queue;
 	TArray<FActiveQuery>  Active;
 	int32 NextHandle = 1;
+	FTimerHandle ReclaimTimerHandle;
 
 	/** Pull from the queue while slots are free; drops requests whose requester already died. */
 	void DispatchNext();
@@ -69,4 +77,6 @@ private:
 	bool DispatchOne(const FPendingQuery& Pending);
 	/** EQS completion callback: correlate by QueryID, forward to the caller, free the slot, dispatch next. */
 	void OnQueryFinished(TSharedPtr<FEnvQueryResult> Result);
+	/** Timer sweep: abort + free any in-flight slot whose requester died (deterministic leak recovery). */
+	void ReclaimDeadSlots();
 };
