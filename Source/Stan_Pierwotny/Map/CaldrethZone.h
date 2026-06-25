@@ -98,9 +98,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Caldreth|Zone", meta = (WorldContext = "WorldContextObject"))
 	static EZoneType GetZoneTypeAtLocation(const UObject* WorldContextObject, const FVector& Location);
 
+	// ==== L0 Track A / Slice 1 — Safe Zone (emergent shelter affordance) ====
+	/** Designer flag: this zone is a Safe Zone. On BeginPlay it self-registers a Shelter affordance so
+	 *  EQS_FindSafeZone (affordance generator, type Shelter) can find it and NPCs can attach. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SafeZone")
+	bool bIsSafeZone = false;
+
+	/** Authored seed for the emergent Shelter affordance's cold-DEFICIT dampen (0..1). Lives on the ACTOR,
+	 *  NOT on FZoneDef (decision #3: Safe Zones are emergent affordances, not biomes). Read-side only —
+	 *  GetFeltTemperature consumes it (ADDITIVE: 0 = no shelter = raw ambient, 1 = full shelter = felt pulled
+	 *  to ComfortTempMin); it never feeds the locked ambient→body coupling. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SafeZone", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ShelterColdDampenFactor = 0.5f;
+
+	/** NPCs currently homed to this zone (weak — dead members auto-null). Not Blueprint-exposed: UHT does
+	 *  not support a TArray<TWeakObjectPtr> as a Blueprint property. C++ (BTTask_AttachToSafeZone) owns it. */
+	UPROPERTY(VisibleAnywhere, Category = "SafeZone")
+	TArray<TWeakObjectPtr<AActor>> AssignedMembers;
+
+	/** Register an NPC as a member of this zone (deduped, prunes stale). Called by BTTask_AttachToSafeZone. */
+	UFUNCTION(BlueprintCallable, Category = "SafeZone")
+	void RegisterMember(AActor* Member);
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void OnConstruction(const FTransform& Transform) override;
+
+	/** Id of this zone's Shelter affordance in UWorldAffordanceSubsystem (INDEX_NONE if not a safe zone). */
+	int32 ShelterAffordanceId = INDEX_NONE;
 
 	/** Resolve ZoneTable's row for ZoneType into CachedDef. One lookup, then cached. */
 	void ResolveZoneDef();
