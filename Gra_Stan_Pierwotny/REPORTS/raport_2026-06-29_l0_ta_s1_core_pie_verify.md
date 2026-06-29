@@ -69,10 +69,16 @@ Wszystko na żywym subsystemie w PIE (Python na instancji). 3 afordancje: n1(Nou
 - po rezerwacji `query_nearest(Nourish)` **pomija** n1 → **1** (n2) ✓
 - `release(n1,A)` → `query_nearest` znów **0**; reserve n1 by B → **True** ✓
 
-**Cancel-on-death (death fail-safe):**
+**Cancel-on-death (death fail-safe) — UWAGA: hot-path jest LATENCY-FREE:**
 - reserve n2 aktorem `DEATH_TEST_RESERVER` → reserved_by=**67596** ✓
-- `destroy_actor()` → tuż po: reserved_by wciąż 67596 (zwolnienie dopiero na RegenTick — poprawnie) ✓
-- po 1 RegenTick: reserved_by → **-1**, n2 znów do zapytań; verbose log `[Affordance] Released claim id=1 — reserver dead/invalid` ✓
+- `destroy_actor()` → tuż po: surowy int `reserved_by` wciąż 67596 ✓
+- po 1 RegenTick: int `reserved_by` → **-1** + verbose log `[Affordance] Released claim id=1 — reserver dead/invalid` ✓
+- **KOREKTA (empiryczna, ten sam dzień):** RegenTick czyści TYLKO kosmetyczny int — **nie jest źródłem dostępności**.
+  `QueryNearest`/`TryReserve`/`Gather` już robią **leniwą walidację weak-ptr w punkcie użycia** (cpp:134 `ReservedByActor.IsValid()`,
+  cpp:154 stale-auto-free): martwy rezerwujący = slot wolny **NATYCHMIAST**, zero czekania na tick. Dowód (jeden synchroniczny skrypt,
+  zero RegenTick pomiędzy): reserve→`destroy_actor()`→ raw int wciąż 67471, ale `QueryNearest` → id **od razu**, `TryReserve` innym
+  aktorem → **True od razu** (re-claim, reserved_by→67881). Pierwotne ujęcie „zwolnienie dopiero na RegenTick" dotyczyło wyłącznie
+  int-a i było mylące. **Brak sztucznej kontencji do 10s** (architekt to oflagował — bezpodstawne; hybryda lazy-validate + RegenTick-backstop JUŻ jest w kodzie).
 
 Dowiedzione: O(local) zapytanie przestrzenne (nearest/typ/radius), atomowy claim (podwójna rezerwacja zablokowana,
 query pomija zarezerwowane, release zwalnia), oraz auto-zwolnienie slotu po śmierci rezerwującego (weak-ptr → RegenTick sweep + log).
@@ -80,11 +86,32 @@ query pomija zarezerwowane, release zwalnia), oraz auto-zwolnienie slotu po śmi
 
 ---
 
-## POZOSTAŁE (czekają na ręczny autoring EQS/BT — tooling nie autoruje)
-- **EQS:** `EnvQueryGenerator_Affordances` zwraca itemy; throttle `EQSBudgetManager`; cancel-on-death zwalnia slot budżetu.
-  (`GatherAffordanceLocations` to C++ non-UFUNCTION → nie wywołasz z Pythona; potrzeba EQS assetu + uruchomienia query.)
-- **Consume revalidate-on-arrival** krawędzie (pusta/zajęta-przez-innego po dojściu, roll-back) — szybkie do dorobienia tą samą techniką.
-- **Pełna pętla DoD §8** (homeless→wander→EQS Safe Zone→attach→forage→spadek L1) — czeka na ręczny autoring EQS/BB/BT.
+## VERIFY #4 — OUTPUT EQS (na UE 5.8, MCPUnreal) — DoD slice'u DOMKNIĘTY
+
+Środowisko: **UE 5.8** (Game_58), tooling MCPUnreal `execute_script` (przeżywa PIE). Asset `EQS_FindResource`
+(EnvQuery z generatorem „Affordances (Caldreth)" = `UEnvQueryGenerator_Affordances`, AffordanceType=Nourishment,
+SearchRadius=5000) autorowany RĘCZNIE w edytorze (generatora nie da się wstrzyknąć z Pythona — niewystawiony).
+
+Test (PIE, UEDPIE_0_Game): querier `EQS_QUERIER` @ (0,0,100); zarejestrowane 3× Nourishment @ (1000/2000/3000,0,0)
+w zasięgu. `EnvQueryManager.run_eqs_query(querier, EQS_FindResource, querier, ALL_MATCHING, wrapper)`:
+```
+LogEQS: RunQuery: EQS_FindResource_0_AllMatching - Owner: EQS_QUERIER
+LogEQS: Finished Query: EQS_FindResource_0_AllMatching - Owner: EQS_QUERIER
+EQS_OUTPUT_COUNT = 3
+EQS_PT 1000 0 0 / 2000 0 0 / 3000 0 0   ← dokładnie 3 zarejestrowane afordancje
+```
+**Dowiedzione:** generator pobiera afordancje wybranego typu z subsystemu (przez `GatherAffordanceLocations`,
+w promieniu queriera) i zwraca je jako itemy EQS (Point); query biegnie end-to-end i kończy się z wynikiem.
+**To zamyka 4. (ostatni) punkt DoD briefu — atomowość claimu + cancel-on-death + timer regenu + output EQS — wszystkie PIE-verified.**
+
+Gotcha (zapisane): w trakcie PIE `EditorAssetLibrary.load_asset` zwraca None (editor-only) → ładuj asset przez
+`unreal.load_object(None, '<Package>.<ObjName>')`; wrapper EQS jest async — stash w `unreal._eqs_wrapper` między
+wywołaniami execute_script, czytaj `get_query_results_as_locations()` po zakończeniu (LogEQS „Finished").
+
+## POZOSTAŁE (poza DoD tego slice'u — przyszłe slice'y)
+- **Consume revalidate-on-arrival** krawędzie (pusta/zajęta-przez-innego po dojściu, roll-back) — szybkie tą samą techniką.
+- **EQSBudgetManager** throttle + cancel-on-death zwalnia slot budżetu — osobny test współbieżności.
+- **Pełna pętla autonomiczna** (homeless→wander→EQS→attach→forage→spadek L1) — wymaga poddrzewa BT (osobny autoring).
 
 ## Tooling — kontekst (dlaczego 5.7)
 Natywny MCP UE 5.8 (`ModelContextProtocol`, HTTP :8000/mcp) **umiera na każdym cyklu PIE i nie wstaje sam** →
