@@ -271,6 +271,7 @@ void UWorldAffordanceSubsystem::RegenTick()
 		// on the existing walk (no new per-NPC scan) so a reserver that died without Release frees the slot.
 		if (H.ReservedBy != INDEX_NONE && !H.ReservedByActor.IsValid())
 		{
+			UE_LOG(LogWorldAffordance, Verbose, TEXT("[Affordance] Released claim id=%d — reserver dead/invalid"), static_cast<int32>(&H - Affordances.GetData()));
 			H.ReservedBy = INDEX_NONE;
 			H.ReservedByActor = nullptr;
 		}
