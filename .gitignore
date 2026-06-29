@@ -6,7 +6,11 @@ DerivedDataCache/
 
 # --- Heavy / non-game (code+docs repo: zero binarnych assetów, zero dev-toolingu) ---
 Content/
-Plugins/
+# Plugins external by default, EXCEPT MCPUnreal source (load-bearing 5.8 verify tooling)
+Plugins/*
+!Plugins/MCPUnreal/
+Plugins/MCPUnreal/Binaries/
+Plugins/MCPUnreal/Intermediate/
 
 # --- IDE / tooling ---
 *.sln
