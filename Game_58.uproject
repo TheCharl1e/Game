@@ -50,6 +50,10 @@
 		{
 			"Name": "PythonAutomationTest",
 			"Enabled": true
+		},
+		{
+			"Name": "MCPUnreal",
+			"Enabled": true
 		}
 	]
 }
