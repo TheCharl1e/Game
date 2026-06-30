@@ -92,6 +92,16 @@ int32 UWorldAffordanceSubsystem::RegisterAffordanceSimple(EAffordanceType Type, 
 	return RegisterAffordance(H);
 }
 
+void UWorldAffordanceSubsystem::DepleteAffordance(int32 Id)
+{
+	if (!Affordances.IsValidIndex(Id) || Affordances[Id].Type == EAffordanceType::None) { return; }
+	FAffordanceHandle& H = Affordances[Id];
+	if (H.RemainingYield <= 0.f) { return; }   // already empty — idempotent
+	H.RemainingYield = 0.f;
+	UE_LOG(LogWorldAffordance, Log,
+		TEXT("[Affordance] Deplete id=%d (yield->0, regen/h=%.2f) — left query pool."), Id, H.RegenPerHour);
+}
+
 void UWorldAffordanceSubsystem::UnregisterAffordance(int32 Id)
 {
 	if (!Affordances.IsValidIndex(Id) || Affordances[Id].Type == EAffordanceType::None) { return; }

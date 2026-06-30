@@ -1,6 +1,7 @@
 // AffordanceSourceActor.cpp
 #include "AffordanceSourceActor.h"
 #include "WorldAffordanceSubsystem.h"
+#include "ConsumableComponent.h"
 #include "Components/SceneComponent.h"
 #include "Engine/World.h"
 
@@ -22,6 +23,36 @@ void AAffordanceSourceActor::BeginPlay()
 			AffordanceId = Affordances->RegisterAffordanceSimple(
 				AffordanceType, GetActorLocation(), Yield, RegenPerHour, /*Owner*/ this, ColdDampenFactor);
 		}
+	}
+
+	// DEPLETION-GATING-01 (D1=A): if this source also carries edible data, bridge its depletion to the
+	// affordance so a fully-eaten source leaves the query pool (Yield = single source of truth for queries).
+	// Opt-in: only binds when a UConsumableComponent is present (water/shelter sources have none).
+	if (UConsumableComponent* Cons = FindComponentByClass<UConsumableComponent>())
+	{
+		Cons->OnDepleted.AddDynamic(this, &AAffordanceSourceActor::HandleConsumableDepleted);
+	}
+}
+
+void AAffordanceSourceActor::HandleConsumableDepleted()
+{
+	if (RegenPerHour > 0.f)
+	{
+		// Renewable: drop from the offer pool until the regen timer refills the yield. NOTE: the consumable's
+		// RemainingPortion is NOT reset here — renewable consumable refill is a separate follow-up; the path
+		// exercised today is non-renewable (RegenPerHour=0).
+		if (UWorld* World = GetWorld())
+		{
+			if (UWorldAffordanceSubsystem* Affordances = World->GetSubsystem<UWorldAffordanceSubsystem>())
+			{
+				Affordances->DepleteAffordance(AffordanceId);
+			}
+		}
+	}
+	else
+	{
+		// Non-renewable: gone for good. Destroy -> EndPlay unregisters the record and the claim auto-frees.
+		Destroy();
 	}
 }
 

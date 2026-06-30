@@ -49,4 +49,10 @@ protected:
 private:
 	/** Registry Id for this instance's record. */
 	int32 AffordanceId = INDEX_NONE;
+
+	/** DEPLETION-GATING-01 (D1=A): bound in BeginPlay to a sibling UConsumableComponent's OnDepleted (if any).
+	 *  Non-renewable (RegenPerHour<=0) -> Destroy (EndPlay unregisters + frees any claim); renewable -> zero the
+	 *  yield (regen timer refills it). Keeps the affordance Yield the single source of truth for queries. */
+	UFUNCTION()
+	void HandleConsumableDepleted();
 };

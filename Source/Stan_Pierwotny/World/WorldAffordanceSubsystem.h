@@ -94,6 +94,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "World|Affordance")
 	void UnregisterAffordance(int32 Id);
 
+	/** DEPLETION-GATING-01 (D1=A): force a record's yield to 0 so it leaves queries immediately, WITHOUT
+	 *  unregistering. Renewable records (RegenPerHour>0) regrow on the regen timer; non-renewable stay empty
+	 *  (callers that want the source gone for good should Destroy the owner instead). Idempotent. */
+	UFUNCTION(BlueprintCallable, Category = "World|Affordance")
+	void DepleteAffordance(int32 Id);
+
 	// ── Query / claim / consume (brief §2) ────────────────────────────────────────────────────────
 	/** Nearest VALID (IsValid Owner OR ownerless, RemainingYield>0, unreserved) affordance of Type within
 	 *  Radius of From. INDEX_NONE if none. O(local cells) via the spatial hash. */
