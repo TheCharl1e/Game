@@ -19,7 +19,7 @@ Akcje nieodwracalne wykonane: ŻADNE. Pluginów NIE włączano, NIC nie pobieran
 ### 2. Weryfikacja portu (netstat)
 | Port | Rola | Wynik |
 |---|---|---|
-| **:8000** | native MCP (kanon, 58) | **BRAK LISTENERA** |
+| **:8000** | native MCP (kanon, 58) | **LIVE** (po StartServer — patrz niżej) |
 | :8090 | MCPUnreal (legacy bridge) | LISTENING, PID **5700 = UnrealEditor.exe** |
 | :9316 | Monolith (legacy bridge) | brak listenera |
 
@@ -49,5 +49,5 @@ Kroki: enable „Unreal MCP" (ModelContextProtocol) + „AllToolsets" + restart;
 ---
 
 ## OPEN (wymaga Twojej decyzji)
-- **OPEN-A. Native :8000 nie działa** — wymaga Twojej akcji w edytorze 58 (zamknięcie 5.7 + StartServer). Dopóki działa 5.7 na :8090, kanoniczny tor authoringu (native) jest offline.
-- **OPEN-B. MCPUnreal (:8090, 5.7) wciąż żyje** — czy ubić edytor 5.7, by nie konkurował/nie mylił z kanonem 58? (Powiązane z PORZADEK_01 OPEN-1.)
+- ~~OPEN-A. Native :8000 nie działa~~ → **RESOLVED 2026-06-30.** Po `ModelContextProtocol.StartServer` w edytorze 58: listener `127.0.0.1:8000` LISTENING (PID 5700 = edytor 58); endpoint `POST /mcp` initialize → HTTP 200, JSON-RPC `protocolVersion: 2024-11-05`, `capabilities.tools.listChanged: true`, `Mcp-Session-Id` zwrócony. `.mcp.json` (8000//mcp) zgodny z domyślnymi pluginu (`DefaultServerPort=8000`). Rekomendacja na przyszłość: Project Settings → Model Context Protocol → **Auto Start Server** (bAutoStartServer), by wstawał sam po restarcie.
+- ~~OPEN-B. MCPUnreal (:8090)~~ → **RESOLVED:** :8090 to plugin MCPUnreal wewnątrz edytora 58 (nie 5.7), zachowany decyzją reżysera; działa równolegle z native :8000, nie koliduje.
