@@ -23,8 +23,13 @@ Akcje nieodwracalne wykonane: ŻADNE. Pluginów NIE włączano, NIC nie pobieran
 | :8090 | MCPUnreal (legacy bridge) | LISTENING, PID **5700 = UnrealEditor.exe** |
 | :9316 | Monolith (legacy bridge) | brak listenera |
 
-**Diagnoza:** native :8000 NIE wstał, bo działający edytor (PID 5700) to **projekt 5.7 `E:\Game`** (status mcp-unreal: `project_root: E:\Game`, `uproject: E:\Game\Stan_Pierwotny.uproject`), a nie Game_58. Native MCP 58 wstaje tylko gdy działa edytor Game_58 z uruchomionym serwerem.
-→ **AKCJA RĘCZNA (Ty):** zamknij edytor 5.7, otwórz `Game_58.uproject`, wystartuj serwer MCP (StartServer/autostart). Patrz checklist w `README_CANON.md`.
+**Diagnoza (SKORYGOWANA 2026-06-30):** PID 5700 to **kanoniczny edytor 58**, nie 5.7. Command-line procesu:
+`"E:/UE_5.8/Engine/Binaries/Win64/UnrealEditor.exe" "E:\Game_58\Game_58.uproject"`. Binarka UE_5.8 + uproject 58.
+Żaden edytor 5.7 NIE działa. Pole `project_root: E:\Game` w `status` pochodzi z osobnego, statycznie skonfigurowanego serwera narzędziowego mcp-unreal — NIE z żywego procesu (błąd pierwotnej diagnozy).
+- Listener **:8090 = plugin MCPUnreal wewnątrz edytora 58** (narzędzie zachowane decyzją reżysera).
+- Native **:8000 down**, bo w otwartym edytorze 58 NIE wystartowano serwera ModelContextProtocol (brak autostartu).
+→ **AKCJA RĘCZNA (Ty):** w już otwartym edytorze 58 uruchom serwer MCP (`StartServer`/autostart). NIE trzeba nic zamykać. Patrz checklist w `README_CANON.md`.
+→ **NIE ubijać PID 5700** — to edytor 58. Instrukcja „ubij edytor 5.7" oparta na nieaktualnym założeniu: takiego procesu nie ma.
 
 ### 3. Szkielet governance — UTWORZONY
 - `E:\Game_58\_gates\` ✔ (zawiera PORZADEK_01.md + ten plik)
