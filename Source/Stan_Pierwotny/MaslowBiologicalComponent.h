@@ -833,6 +833,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
     bool SettleMealInstant(TScriptInterface<IConsumable> Food, UDataTable* FoodTable, int32 BiteCount);
 
+    // SLEEP_FAINT_TRAP_01 — PIE debug seed (NOT gameplay): rested (HoursAwake=0, no faint) + hungry
+    // (Glucose floored, Glycogen/StomachFill 0) so the Nutrition need wins before the exhaustion faint and
+    // the eat loop becomes testable. Driven by the `Maslow.SeedRestedHungry` console command. Zero design impact.
+    UFUNCTION(BlueprintCallable, Category = "Biology|Debug")
+    void DebugSeedRestedHungry();
+
     // UTILITY — NOT biology. Lives here only as a pragmatic home (no UBlueprintFunctionLibrary in the
     // module yet, and a dedicated file for one 3-liner is disproportionate). MOVE to a BP function library
     // if more such utils accrue. Removes null/!IsValid entries from an actor array (by ref) and returns the

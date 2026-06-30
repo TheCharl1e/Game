@@ -1,6 +1,7 @@
 # TICKET: SLEEP-FAINT-TRAP-01 — NPC mdleje z wyczerpania zanim głód dostanie turę
 
-Data: 2026-06-30 · Status: OPEN (osobny od BTTASK_EAT_WIRING_01 — NIE mieszać) · Target: E:\Game_58
+Data: 2026-06-30 · Status: **RESOLVED opcją A (seed) — compile-validated** · Target: E:\Game_58
+> Dyrektor wybrał A (seed PIE, zero zmian gameplay). Console command `Maslow.SeedRestedHungry` dodany (`MaslowBiologicalComponent.cpp`): iteruje NPC w świecie PIE i ustawia `HoursAwake=0` (stop faint) + `Glucose=1`/`GlycogenReserves=0`/`StomachFill=0` (głód dominuje) + `bIncapacitated=false`. Interim GAME-build: Succeeded. Użycie: w konsoli PIE wpisz `Maslow.SeedRestedHungry` (opcjonalnie `slomo 0.3` by spowolnić narastanie HoursAwake), potem obserwuj forage→eat. Logi: `[DebugSeed:...]`.
 
 ## Problem (z PIE-verify 2026-06-30, log)
 W PIE pętla jedzenia nie odpaliła się, bo:

@@ -14,8 +14,29 @@
 #include "World/WorldAffordanceSubsystem.h" // L0-TA-S1: read-side shelter cold-dampen (GetFeltTemperature)
 #include "NPC/NPCIdentityComponent.h" // L3-02: read Neuroticism for the panic roll
 #include "IConsumable.h"            // ICONSUMABLE-EAT-01: eat loop calls the interface, not a concrete base
+#include "HAL/IConsoleManager.h"    // SLEEP_FAINT_TRAP_01: Maslow.SeedRestedHungry console command
 
 DEFINE_LOG_CATEGORY(LogMaslow);
+
+// SLEEP_FAINT_TRAP_01 — PIE debug: seed every NPC rested+hungry so the Nutrition need wins before the
+// exhaustion faint (HoursAwake→24) and the eat loop is testable. Console only, no gameplay/asset change.
+static FAutoConsoleCommandWithWorld GMaslowSeedRestedHungryCmd(
+    TEXT("Maslow.SeedRestedHungry"),
+    TEXT("PIE debug: set every NPC rested (HoursAwake=0) + hungry (Glucose floored, Glycogen/StomachFill=0). SLEEP_FAINT_TRAP_01."),
+    FConsoleCommandWithWorldDelegate::CreateLambda([](UWorld* World)
+    {
+        if (!World) { return; }
+        int32 N = 0;
+        for (TActorIterator<AActor> It(World); It; ++It)
+        {
+            if (UMaslowBiologicalComponent* M = It->FindComponentByClass<UMaslowBiologicalComponent>())
+            {
+                M->DebugSeedRestedHungry();
+                ++N;
+            }
+        }
+        UE_LOG(LogMaslow, Warning, TEXT("[DebugSeed] Maslow.SeedRestedHungry -> %d NPC(s)."), N);
+    }));
 
 UMaslowBiologicalComponent::UMaslowBiologicalComponent()
 {
@@ -1108,6 +1129,18 @@ bool UMaslowBiologicalComponent::SettleMealInstant(TScriptInterface<IConsumable>
     UE_LOG(LogMaslow, Log, TEXT("[Eat:%s] SettleMealInstant — %d bite-passes (StomachFill=%.1f Glucose=%.1f BodyFat=%.1f)."),
         GetOwner() ? *GetOwner()->GetName() : TEXT("?"), Guard, StomachFill, Glucose, BodyFat);
     return true;
+}
+
+// SLEEP_FAINT_TRAP_01 — see header. Floors hunger inputs + zeroes the awake clock so the eat branch runs.
+void UMaslowBiologicalComponent::DebugSeedRestedHungry()
+{
+    HoursAwake       = 0.0f;     // stop the exhaustion climb to the faint (OMDLENIE @ CollapseThreshold)
+    bIncapacitated   = false;    // un-faint if already ragdolled
+    Glucose          = 1.0f;     // far below any hunger threshold -> Nutrition need dominates
+    GlycogenReserves = 0.0f;     // no buffer to refill Glucose
+    StomachFill      = 0.0f;     // empty stomach (satiety judge)
+    UE_LOG(LogMaslow, Warning, TEXT("[DebugSeed:%s] rested+hungry (HoursAwake=0 Glucose=1 Glycogen=0 StomachFill=0)."),
+        GetOwner() ? *GetOwner()->GetName() : TEXT("?"));
 }
 
 // UTILITY (not biology) — prune null/destroyed entries from an actor array, return the new count.
