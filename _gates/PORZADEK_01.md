@@ -44,7 +44,7 @@ Liczone rekursywnie `.uasset + .umap`:
 
 - **OPEN-1 (krok 4, KWARANTANNA LEGACY).** Monolith: NIE obecny w 58 (brak pluginu, brak portu :9316) → nic do kwarantanny. **MCPUnreal: obecny, ENABLED w `.uproject`, tracked w git (38 plików), opisany jako „load-bearing 5.8 verify tooling".** To NIE jest porzucony legacy — to aktywne narzędzie. Przeniesienie do `_quarantine\` wymagałoby edycji `.uproject` (zakaz briefu) i zepsułoby ładowanie edytora → **NIE ruszam, czekam na decyzję.** Opcje: (a) zostaw MCPUnreal jako tor weryfikacji obok native 8000; (b) wyłącz w .uproject + kwarantanna (powiedz „tak" — zrobię oba kroki). `_quarantine\` NIE utworzony (nic nie zakwalifikowane).
 - **OPEN-2 (`.gitignore`).** Zostawić istniejący bogatszy (rekomendacja) czy podmienić na wersję z briefu (utrata reguł Content/MCPUnreal/.mcp.json)? Rekomendacja: zostawić istniejący.
-- **OPEN-3 (reparent poza VC).** `Content/` jest gitignored → reparenty BP żyją tylko na dysku. Ryzyko utraty przy awarii dysku. Opcje: (a) zaakceptuj (repo=code+docs, backup Content osobno); (b) odignoruj wybrane krytyczne `.uasset` (BP_Food/BP_WaterSource) i wersjonuj. Decyzja Twoja.
+- ~~OPEN-3 (reparent poza VC)~~ → **RESOLVED 2026-06-30 (opcja b).** `BP_Food.uasset` + `BP_WaterSource.uasset` force-tracked (`git add -f`) mimo globalnego ignore `Content/`; wyjątek udokumentowany w `.gitignore`; commit `ff5a1dd` wypushowany na `origin/game-58`. Reparent do AffordanceSourceActor jest teraz pod VC. Przyszłe zmiany tych dwóch plików widoczne w `git status` normalnie.
 - **OPEN-4 (stray source).** `Source/Stan_Pierwotny/RTS/SurvivalPlayerController.{cpp,h}` są untracked. Commit teraz czy to WIP do dokończenia?
 
 ---
