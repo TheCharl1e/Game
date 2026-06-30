@@ -1,6 +1,6 @@
 # GATE: ICONSUMABLE-EAT-01 — odblokowanie BTTask_Eat przez interfejs IConsumable
 
-Data otwarcia: 2026-06-30 · Status: **C++ DONE (compile-validated) — czeka na Editor-build + kroki BP + PIE** · Target: E:\Game_58 (UE 5.8)
+Data otwarcia: 2026-06-30 · Status: **C++ DONE + BP graf naprawiony — ZABLOKOWANE: rich-eat task to sierota poza BT (decyzja A/B)** · Target: E:\Game_58 (UE 5.8)
 Pełna diagnoza i powierzchnia: `Gra_Stan_Pierwotny/REPORTS/gate_request_2026-06-30_iconsumable_bp_food.md` (źródło prawdy, nie duplikuję).
 
 ## Problem (1 zdanie)
@@ -26,7 +26,15 @@ W 5.8 `BP_Food` jest reparentowany na `AAffordanceSourceActor` (żywy forage L0-
 - **Patch (nie regen):** `MaslowBiologicalComponent.{h,cpp}` — include IConsumable, sygnatura `StartEatingItem`, `EatTargetConsumable`, `ConsumeBite` przez interfejs, `StopEating` zeruje konsumowalny. Usunięto martwy `#include "ItemBase.h"` + forward-decl AItemBase (zero pozostałych referencji).
 - **DOWÓD kompilacji:** interim build GAME-target `Game_58 Win64 Development` → **`Result: Succeeded`** (UHT 158 plików gen, ConsumableComponent.cpp + MaslowBiologicalComponent.cpp OK, link Game_58.exe OK; ostrzeżenia tylko istniejące StateTree-deprecation, nie z tej zmiany).
 
-## POZOSTAŁO do zamknięcia bramki (DoD)
+## ⛔ BLOKER ARCHITEKTONICZNY (wykryty w PIE-verify 2026-06-30 — wymaga decyzji)
+**Nasz naprawiony BP `BTTask_Eat.uasset` (rich model) NIE jest w żywym drzewie.** Dowód z import-table `BT_Exploration.uasset`: referuje C++ taski z `/Script/Stan_Pierwotny` (`BTTask_Eat`, `BTTask_Drink`, `BTTask_RunBudgetedEQS`, `BTTask_MoveTo`, `BTTask_RollWanderDirection`) — BRAK referencji do assetu `/Game/DocelowaGra/AI_NPC/BTTask_Eat`. Kolizja nazw: żywy `BTTask_Eat` = **klasa C++** (afordancja → `ConsumeFood`, prosty model), nasz BP `BTTask_Eat` (StartEatingItem → ConsumeBite, rich) = **sierota**.
+- Konsekwencja: fix IConsumable jest poprawny i kompiluje się (graf BP czysty od 19:03:22), ALE rich-eat nigdy nie wykona się w PIE, bo BT nie odpala BP taska. PIE 2026-06-30: NPC zemdleli z wyczerpania (sen), zero `StartEating`, zero afordancyjnego „ate".
+- **DECYZJA (architekt/dyrektor — NIE wybieram):**
+  - **A) Wire rich model:** przepiąć gałąź jedzenia w `BT_Exploration` na BP `BTTask_Eat` (rich) zamiast C++ afordancyjnego. Wymaga integracji: jak rich-task dostaje cel (blackboard Key vs afordancja Reserve/Consume), reconcyl z claim/release afordancji. = większy slice / osobny gate.
+  - **B) Retire rich model:** afordancyjny C++ eat jest kanoniczny; BP `BTTask_Eat` + `StartEatingItem`/`ConsumeBite` rich-layer = martwy duplikat do deprecjacji (jak [[tech11-perception-model-decision]]). Wtedy IConsumable warstwa nie jest potrzebna do jedzenia (ew. zostaje pod corpse/przyszłość).
+- Rekomendacja executora: to decyzja architektury (czy appetite/stomach-fill model jest chcianą mechaniką), nie mechaniczny fix — potrzebny input architekta przed dalszą pracą.
+
+## POZOSTAŁO do zamknięcia bramki (DoD) — ZABLOKOWANE powyższym
 1. **Editor-build** nowego C++ (zamknij edytor → build `Game_58Editor`, albo Live Coding) — żeby edytor znał `UConsumableComponent`/`IConsumable`. **AKCJA: zamknięcie edytora po Twojej stronie.**
 2. **Manual BP (instruuję, Ty klikasz — MCP koruptuje piny object):**
    a. `BP_Food`: Add Component → `ConsumableComponent`; ustaw `FoodTableRowName` (ten sam co dziś żywi DT_FoodStats); (opcjonalnie) bind `OnDepleted` → Destroy/scrap.
