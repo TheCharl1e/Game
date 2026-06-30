@@ -13,7 +13,7 @@
 #include "Map/CaldrethZone.h"       // AmbientTemp: GetZoneAtLocation + FZoneDef.BaseTemp
 #include "World/WorldAffordanceSubsystem.h" // L0-TA-S1: read-side shelter cold-dampen (GetFeltTemperature)
 #include "NPC/NPCIdentityComponent.h" // L3-02: read Neuroticism for the panic roll
-#include "ItemBase.h"               // APPETITE slice 1: nadgryzienie itemu (Cast<AItemBase> w ConsumeBite)
+#include "IConsumable.h"            // ICONSUMABLE-EAT-01: eat loop calls the interface, not a concrete base
 
 DEFINE_LOG_CATEGORY(LogMaslow);
 
@@ -1052,13 +1052,14 @@ void UMaslowBiologicalComponent::StartEating(AActor* Food, const FFoodItemRow& M
 // lookup) and starts the meal. Fail-safe: refuses (return false, NO StartEating) on invalid Food / null
 // table / missing row, each with a Warning. The eat task gates the montage on the return value so an
 // unresolved meal never leaves bIsEating=true hanging over a zero-volume session.
-bool UMaslowBiologicalComponent::StartEatingItem(AItemBase* Food, UDataTable* FoodTable, int32 BiteCount)
+bool UMaslowBiologicalComponent::StartEatingItem(TScriptInterface<IConsumable> Food, UDataTable* FoodTable, int32 BiteCount)
 {
     // FString (not TCHAR*): GetName() returns a temporary FString; caching *FString into a raw pointer
     // would dangle after the statement and print garbage. Hold the FString, deref (*) at each log site.
     const FString OwnerName = GetOwner() ? GetOwner()->GetName() : FString(TEXT("?"));
 
-    if (!IsValid(Food))
+    UObject* FoodObj = Food.GetObject();
+    if (!IsValid(FoodObj))
     {
         UE_LOG(LogMaslow, Warning, TEXT("[Eat:%s] StartEatingItem REFUSED — Food invalid."), *OwnerName);
         return false;
@@ -1069,7 +1070,8 @@ bool UMaslowBiologicalComponent::StartEatingItem(AItemBase* Food, UDataTable* Fo
         return false;
     }
 
-    const FName RowName = Food->FoodTableRowName;   // data-driven: row id lives on the item, not hardcoded
+    // data-driven: row id lives on the consumable (interface), not hardcoded. ICONSUMABLE-EAT-01.
+    const FName RowName = IConsumable::Execute_GetFoodTableRowName(FoodObj);
     const FFoodItemRow* Row = FoodTable->FindRow<FFoodItemRow>(RowName, TEXT("StartEatingItem"), /*bWarnIfRowMissing*/ false);
     if (Row == nullptr)
     {
@@ -1078,7 +1080,14 @@ bool UMaslowBiologicalComponent::StartEatingItem(AItemBase* Food, UDataTable* Fo
         return false;
     }
 
-    StartEating(Food, *Row, BiteCount);
+    // Hold the consumable weakly for per-bite ConsumePortion (ConsumeBite). When it is a component
+    // (UConsumableComponent on BP_Food), the actor-validity / stale-check target is its owning actor.
+    EatTargetConsumable = FoodObj;
+    AActor* OwnerActor = nullptr;
+    if (UActorComponent* AsComp = Cast<UActorComponent>(FoodObj)) { OwnerActor = AsComp->GetOwner(); }
+    else { OwnerActor = Cast<AActor>(FoodObj); }
+
+    StartEating(OwnerActor, *Row, BiteCount);
     return true;
 }
 
@@ -1123,9 +1132,13 @@ void UMaslowBiologicalComponent::ConsumeBite()
     --RemainingBites;
 
     // Nadgryzienie itemu w świecie (mirror ACorpseBase::ExtractMeat) — jedzenie zostaje nadgryzione, nie znika.
-    if (AItemBase* Item = Cast<AItemBase>(EatTargetFood.Get()))
+    // ICONSUMABLE-EAT-01: consume through the interface, decoupled from any concrete actor base.
+    if (UObject* C = EatTargetConsumable.Get())
     {
-        Item->ConsumePortion(Frac);
+        if (C->Implements<UConsumable>())
+        {
+            IConsumable::Execute_ConsumePortion(C, Frac);
+        }
     }
 
     UE_LOG(LogMaslow, Verbose,
@@ -1170,10 +1183,11 @@ void UMaslowBiologicalComponent::StopEating(EEatStopReason Reason)
     OnMealEnd(CurrentMealSize, Reason);   // BP: beknięcie / odłożenie nadgryzionego (CZY liczy C++, JAK gra BP)
 
     // Sprzątanie sesji. Nadgryzione jedzenie (Item->RemainingPortion > 0) ZOSTAJE w świecie (EC-EAT-1).
-    EatTargetFood   = nullptr;
-    bHasFoodActor   = false;
-    CurrentMealSize = 0.0f;
-    RemainingBites  = 0;
+    EatTargetFood       = nullptr;
+    EatTargetConsumable = nullptr;
+    bHasFoodActor       = false;
+    CurrentMealSize     = 0.0f;
+    RemainingBites      = 0;
 }
 
 // Routing makr jednego kęsa → magazyn. Lustro kaskady spalania; różne efektywności depozytu (Atwater-grounded).

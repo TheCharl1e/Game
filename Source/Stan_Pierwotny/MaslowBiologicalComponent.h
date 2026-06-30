@@ -3,13 +3,13 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Engine/DataTable.h"
+#include "IConsumable.h"       // ICONSUMABLE-EAT-01: StartEatingItem takes TScriptInterface<IConsumable>
 #include "MaslowBiologicalComponent.generated.h"
 
 // Dedicated log category for the Maslow biology / sleep engine.
 DECLARE_LOG_CATEGORY_EXTERN(LogMaslow, Log, All);
 
 class ACaldrethZone;   // AmbientTemp: cache strefy (perf #1)
-class AItemBase;       // APPETITE slice 1b: StartEatingItem resolves food item → FFoodItemRow
 
 // Definicja struktury dla DT_ActionCosts (Row Struct).
 // Nazwa wiersza = identyfikator akcji (np. Action.Idle, Action.Work.Woodcutting),
@@ -819,7 +819,7 @@ public:
     // (false → no PlaySlotAnimationAsDynamicMontage → no silent hang over an empty meal). Data-driven:
     // the row id is read from the item (Food->FoodTableRowName), never hardcoded.
     UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
-    bool StartEatingItem(AItemBase* Food, UDataTable* FoodTable, int32 BiteCount);
+    bool StartEatingItem(TScriptInterface<IConsumable> Food, UDataTable* FoodTable, int32 BiteCount);
 
     // UTILITY — NOT biology. Lives here only as a pragmatic home (no UBlueprintFunctionLibrary in the
     // module yet, and a dedicated file for one 3-liner is disproportionate). MOVE to a BP function library
@@ -881,6 +881,7 @@ private:
 
     // APPETITE slice 1 — stan sesji (nie-UPROPERTY: runtime, jak CachedIdentity).
     TWeakObjectPtr<AActor> EatTargetFood;   // item jedzenia tej sesji (weak — może zniknąć: P2P/śmierć)
+    TWeakObjectPtr<UObject> EatTargetConsumable; // IConsumable carrier (np. UConsumableComponent) — per-bite ConsumePortion
     FFoodItemRow CurrentMeal;               // makra+Volume CAŁEGO posiłku (kęs = część 1/TotalBites)
     int32 TotalBites = 0;                   // na ile kęsów rozłożony posiłek
     int32 RemainingBites = 0;               // ile kęsów zostało
