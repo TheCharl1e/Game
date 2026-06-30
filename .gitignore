@@ -6,6 +6,10 @@ DerivedDataCache/
 
 # --- Heavy / non-game (code+docs repo: zero binarnych assetów, zero dev-toolingu) ---
 Content/
+# EXCEPTION: two affordance BPs are force-tracked (git add -f) to version their
+# reparent to AffordanceSourceActor (OPEN-3, PORZADEK-01):
+#   Content/DocelowaGra/FOOD/BP_Food.uasset
+#   Content/DocelowaGra/DRINK/BP_WaterSource.uasset
 # Plugins external by default, EXCEPT MCPUnreal source (load-bearing 5.8 verify tooling)
 Plugins/*
 !Plugins/MCPUnreal/
