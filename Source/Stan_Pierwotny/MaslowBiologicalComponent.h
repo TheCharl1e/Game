@@ -103,6 +103,11 @@ enum class EEatStopReason : uint8
     Incapacitated  UMETA(DisplayName = "Incapacitated (collapse/microsleep)")
 };
 
+// BTTASK-EAT-WIRING-01 (F2): native (C++-only) broadcast so the latent eat BT task knows the meal session
+// closed (ConsumeBite auto-stops at satiety/finished). Native — bound from the C++ task via AddUObject, no
+// UFUNCTION ceremony, no BP exposure. Fired from StopEating with the close reason.
+DECLARE_MULTICAST_DELEGATE_OneParam(FMaslowOnEatingStopped, EEatStopReason /*Reason*/);
+
 // Zdefiniowane Fazy Głodowania dla Drzewa Zachowań i UI (Zaktualizowane o nowy system)
 UENUM(BlueprintType)
 enum class EHungerPhase : uint8
@@ -821,6 +826,13 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
     bool StartEatingItem(TScriptInterface<IConsumable> Food, UDataTable* FoodTable, int32 BiteCount);
 
+    // BTTASK-EAT-WIRING-01 — LOD-far path (significance-gated): settle the WHOLE meal in one synchronous pass,
+    // zero montage. Reuses the bite pipeline (StartEatingItem + ConsumeBite loop) so macros/StomachFill/stretch/
+    // consumable-deplete are identical to the near path — no new math. Returns false (no settle) on the same
+    // refusals as StartEatingItem (invalid food / null table / missing row).
+    UFUNCTION(BlueprintCallable, Category = "Biology|Appetite")
+    bool SettleMealInstant(TScriptInterface<IConsumable> Food, UDataTable* FoodTable, int32 BiteCount);
+
     // UTILITY — NOT biology. Lives here only as a pragmatic home (no UBlueprintFunctionLibrary in the
     // module yet, and a dedicated file for one 3-liner is disproportionate). MOVE to a BP function library
     // if more such utils accrue. Removes null/!IsValid entries from an actor array (by ref) and returns the
@@ -859,6 +871,10 @@ public:
     // BP rysuje reakcję na koniec posiłku (beknięcie / animacja sytości / odłożenie nadgryzionego). C++ liczy CZY.
     UFUNCTION(BlueprintImplementableEvent, Category = "Biology|Appetite")
     void OnMealEnd(float MealSize, EEatStopReason Reason);
+
+    // BTTASK-EAT-WIRING-01 (F2): fired by StopEating so the latent eat BT task can finish + release its claim.
+    // Native delegate (not UPROPERTY): bound C++-side via AddUObject. NOT for Blueprints (BP uses OnMealEnd).
+    FMaslowOnEatingStopped OnEatingStopped;
 
 private:
     // L3-02: rolls Neuroticism-driven panic on the metabolism cadence (mirror of TriggerMicrosleep).

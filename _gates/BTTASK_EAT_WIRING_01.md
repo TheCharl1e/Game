@@ -1,6 +1,6 @@
 # GATE: BTTASK-EAT-WIRING-01 — kanoniczny C++ BTTask_Eat (rich appetite ↔ afordancja)
 
-Data: 2026-06-30 · Branch: `feat/bttask-eat-wiring` (od `game-58`) · Target: E:\Game_58 (UE 5.8)
+Data: 2026-06-30 · Branch: `feat/bttask-eat-wiring` (od `game-58`) · Status: **C++ DONE (compile-validated) — czeka na editor-build + okablowanie assetów + PIE (gated SLEEP_FAINT_TRAP_01)** · Target: E:\Game_58 (UE 5.8)
 Werdykt architekta: ścieżka A (okabluj rich model). Buduje na zshipowanym APPETITE_GRUBAS. Nadrzędne nad [[ICONSUMABLE_EAT_01]] (C++ parked-ready).
 
 ## RESOLVED (kontrakt zalockowany przez architekta)
@@ -24,7 +24,14 @@ Werdykt architekta: ścieżka A (okabluj rich model). Buduje na zshipowanym APPE
 - **Konsumowalny na celu**: afordancja `Owner` = BP_Food, który (ICONSUMABLE krok A) ma `UConsumableComponent` (impl `IConsumable`). Integracja: `GetAffordance(Id).Owner` → `FindComponentByClass<UConsumableComponent>` → `StartEatingItem(...)`.
 - **AI controller C++** `AI/NPCAIControllerBase.{h,cpp}` (pawn = BP_NPC_Character, BP-only — brak C++ bazy pawna).
 
-## ⚠️ FLAGI — rozjazdy z kontraktem (kontrakt zakłada plumbing, którego NIE ma; proszę o GO / korektę)
+## IMPLEMENTACJA — C++ DONE (compile-validated, interim GAME build: Succeeded) — defaulty zatwierdzone „jedź"
+- **Maslow** (`MaslowBiologicalComponent.{h,cpp}`): native delegat `FMaslowOnEatingStopped OnEatingStopped` broadcastowany w `StopEating` (F2); `SettleMealInstant(TScriptInterface<IConsumable>, UDataTable*, int32)` = reuse StartEatingItem+ConsumeBite loop (LOD-far).
+- **Controller** (`NPCAIControllerBase.h`): BIE `PlayEatMontage(AActor* FoodActor)` + `StopEatMontage()` (F1 — host = kontroler C++, BP_NPC_AI implementuje).
+- **`BTTask_Eat.{h,cpp}`** przepisany na **kanoniczny latentny task** (`bCreateNodeInstance=true`): Claim(Reserve) → resolve `UConsumableComponent` na afordancji Owner → BB `NearestFood`=Owner (F3) → near: `StartEatingItem`+bind `OnEatingStopped`+`PlayEatMontage` → InProgress; AnimNotify_EatBite→ConsumeBite→auto-StopEating→`HandleEatingStopped`→Release+`FinishLatentTask`. far: `SettleMealInstant`+Release→Succeeded. `AbortTask`: unbind→StopEating(Interrupted)→StopEatMontage→Release→Aborted. Cleanup idempotentny; claim też auto-wolny przy śmierci (subsystem `ReservedByActor`).
+- **Property (F4):** `UDataTable* FoodTable`, `int32 BiteCount=4`, `FBlackboardKeySelector NearestFoodObjectKey`, `bool bIsHighSignificance=true` (F5 stub).
+- **Log:** reuse istniejących kategorii — `LogWorldAffordance` (Claim/Release/task) + `LogMaslow` (StartEating/Bite/Stop/SettleInstant); pełna ścieżka grep-owalna (zamiast nowej kategorii — assume-log).
+
+## ⚠️ FLAGI — rozwiązane defaultami (zatwierdzone „jedź"); F3 key = NearestFood (Object, BB_NPC)
 - **F1 — `PlayEatMontage` BIE nie istnieje i nie ma C++ hosta na pawnie** (pawn = BP-only). Propozycja default: BIE `PlayEatMontage(AActor* FoodActor)` na **`ANPCAIControllerBase`** (C++; task ma `GetAIOwner()`), BP_NPC_AI implementuje i gra montaż na opętanym pawnie. Alternatywa: interfejs `IEatAnimation` na pawnie (wzór IConsumable). → potrzebny wybór.
 - **F2 — mechanizm zakończenia taska latentnego nie istnieje.** ConsumeBite robi auto-`StopEating`, ale C++ task nie wie KIEDY skończyć węzeł BT. Propozycja default: dodać do Maslow multicast `FOnEatingStopped` broadcastowany w `StopEating`; task binduje → `FinishLatentTask(Succeeded)` + Release. → potwierdź podejście.
 - **F3 — `NearestFoodObject` BB-key nie istnieje w C++.** Dziś task pyta afordancję wprost (zero BB-write). Propozycja default: `FBlackboardKeySelector NearestFoodObjectKey` na tasku, zapis `Owner` po Reserve. Wymaga, by BB_NPC miał Object-key. → potwierdź nazwę/obecność klucza.
@@ -36,7 +43,14 @@ Werdykt architekta: ścieżka A (okabluj rich model). Buduje na zshipowanym APPE
 2. PIE: NPC near → `Claim → StartEating → PlayEatMontage → ConsumeBite×N → StopEating(Full/Finished) → Release`; far → `SettleMealInstant → Release`. Twarde liczby z `Saved/Logs/` (osobna kategoria: Claim/Release/StartEating/Bite/Stop/SettleInstant). Cancel-on-death: NPC ginie w trakcie → slot zwolniony (log).
 > Test zależy od SLEEP_FAINT_TRAP_01 (inaczej NPC mdleje z głodu snu przed turą jedzenia).
 
-## STOP — nie ruszam (czeka na zatwierdzenie / wymaga edytora / koruptuje MCP)
-- NIE edytuję `BT_Exploration` (przepięcie taska) — ręczne kliknięcia po zatwierdzeniu.
-- NIE kasuję BP `BTTask_Eat.uasset`.
+## POZOSTAŁO do zamknięcia bramki (manualne / wymaga edytora — STOP po mojej stronie)
+1. **Editor-build** nowego C++ (zamknij edytor → zbuduję `Game_58Editor`).
+2. **Okablowanie assetów (instruuję, Ty klikasz — MCP koruptuje piny):**
+   a. `BT_Exploration`: w gałęzi jedzenia użyj C++ `BTTask_Eat` (już tam jest), ustaw na węźle: `FoodTable`=DT_FoodStats, `BiteCount`, `NearestFoodObjectKey`=**NearestFood**.
+   b. `BP_NPC_AI` (kontroler): zaimplementuj event `PlayEatMontage(FoodActor)` → zagraj montaż jedzenia na pawnie; `StopEatMontage` → przerwij. Montaż MUSI nieść `AnimNotify_EatBite` ≥ BiteCount razy (inaczej sesja nie domknie się przez bites — domknie ją dopiero sytość).
+3. **PIE verify** — DoD niżej. **Zależny od SLEEP_FAINT_TRAP_01** (NPC mdleje z głodu snu przed turą jedzenia).
+
+## STOP — nie ruszam
+- NIE edytuję `BT_Exploration` ani `BP_NPC_AI` (ręczne kliknięcia po Twojej stronie).
+- NIE kasuję BP `BTTask_Eat.uasset` (deprecjacja po potwierdzeniu, że C++ task działa w PIE).
 - NIE odpalam PIE.

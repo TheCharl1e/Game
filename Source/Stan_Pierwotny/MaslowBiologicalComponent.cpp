@@ -1091,6 +1091,25 @@ bool UMaslowBiologicalComponent::StartEatingItem(TScriptInterface<IConsumable> F
     return true;
 }
 
+// BTTASK-EAT-WIRING-01 — LOD-far: drain the whole meal in one synchronous pass. Reuses StartEatingItem +
+// ConsumeBite so the result is identical to the montage-driven near path (macros, StomachFill, stretch,
+// consumable deplete), minus the animation. ConsumeBite auto-stops at satiety / food-finished.
+bool UMaslowBiologicalComponent::SettleMealInstant(TScriptInterface<IConsumable> Food, UDataTable* FoodTable, int32 BiteCount)
+{
+    if (!StartEatingItem(Food, FoodTable, BiteCount)) { return false; }
+
+    // ConsumeBite always either decrements RemainingBites or closes the session, so this terminates; the
+    // guard only protects against a future invariant break.
+    int32 Guard = 0;
+    const int32 MaxIterations = FMath::Max(1, TotalBites) + 8;
+    while (bIsEating && Guard++ < MaxIterations) { ConsumeBite(); }
+    if (bIsEating) { StopEating(EEatStopReason::Finished); }   // belt-and-suspenders
+
+    UE_LOG(LogMaslow, Log, TEXT("[Eat:%s] SettleMealInstant — %d bite-passes (StomachFill=%.1f Glucose=%.1f BodyFat=%.1f)."),
+        GetOwner() ? *GetOwner()->GetName() : TEXT("?"), Guard, StomachFill, Glucose, BodyFat);
+    return true;
+}
+
 // UTILITY (not biology) — prune null/destroyed entries from an actor array, return the new count.
 // See header note + ROADMAP TECH-11 (perception Adds but never removes the Food array).
 int32 UMaslowBiologicalComponent::CompactNullActors(TArray<AActor*>& Actors)
@@ -1181,6 +1200,7 @@ void UMaslowBiologicalComponent::StopEating(EEatStopReason Reason)
         ReasonStr, CurrentMealSize, GastricCapacity, GetSatietySetpoint(), StomachFill, BodyFat);
 
     OnMealEnd(CurrentMealSize, Reason);   // BP: beknięcie / odłożenie nadgryzionego (CZY liczy C++, JAK gra BP)
+    OnEatingStopped.Broadcast(Reason);    // BTTASK-EAT-WIRING-01 (F2): C++ eat task finishes BT node + releases claim
 
     // Sprzątanie sesji. Nadgryzione jedzenie (Item->RemainingPortion > 0) ZOSTAJE w świecie (EC-EAT-1).
     EatTargetFood       = nullptr;

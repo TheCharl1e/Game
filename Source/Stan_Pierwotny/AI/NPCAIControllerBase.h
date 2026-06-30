@@ -22,6 +22,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
 	TObjectPtr<UBehaviorTree> DefaultBehaviorTree = nullptr;
 
+	// BTTASK-EAT-WIRING-01 (F1): C++ eat task fires the eat animation through the BP body. BP_NPC_AI plays
+	// the eat montage on the possessed pawn (montage carries AnimNotify_EatBite → ConsumeBite). C++ = brain
+	// (decides WHEN/claim), BP = body (plays montage). FoodActor = the affordance owner (BP_Food) being eaten.
+	UFUNCTION(BlueprintImplementableEvent, Category = "AI|Appetite")
+	void PlayEatMontage(AActor* FoodActor);
+
+	/** Stop/interrupt the eat montage (eat aborted before the session finished). */
+	UFUNCTION(BlueprintImplementableEvent, Category = "AI|Appetite")
+	void StopEatMontage();
+
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
 };
