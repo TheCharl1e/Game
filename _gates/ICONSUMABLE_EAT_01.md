@@ -1,6 +1,7 @@
 # GATE: ICONSUMABLE-EAT-01 — odblokowanie BTTask_Eat przez interfejs IConsumable
 
-Data otwarcia: 2026-06-30 · Status: **C++ DONE + BP graf naprawiony — ZABLOKOWANE: rich-eat task to sierota poza BT (decyzja A/B)** · Target: E:\Game_58 (UE 5.8)
+Data otwarcia: 2026-06-30 · Status: **C++/IConsumable READY — PARKED under BTTASK_EAT_WIRING_01** · Target: E:\Game_58 (UE 5.8)
+> Werdykt architekta 2026-06-30: rama A/B była fałszywa. Rich model (StartEating/ConsumeBite/StopEating) to zatwierdzony+zshipowany APPETITE_GRUBAS (nie otwarta decyzja); B (kasacja) odpada. Brak okablowania = wiring-debt w MILESTONES. C++ + graf BP IConsumable ZOSTAJĄ (nie cofamy) — okablowanie kanonicznego eat-taska przejmuje **`_gates/BTTASK_EAT_WIRING_01.md`**.
 Pełna diagnoza i powierzchnia: `Gra_Stan_Pierwotny/REPORTS/gate_request_2026-06-30_iconsumable_bp_food.md` (źródło prawdy, nie duplikuję).
 
 ## Problem (1 zdanie)
