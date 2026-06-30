@@ -1,6 +1,6 @@
 # GATE: BTTASK-EAT-WIRING-01 — kanoniczny C++ BTTask_Eat (rich appetite ↔ afordancja)
 
-Data: 2026-06-30 · Branch: `feat/bttask-eat-wiring` (od `game-58`) · Status: **C++ DONE (compile-validated) — czeka na editor-build + okablowanie assetów + PIE (gated SLEEP_FAINT_TRAP_01)** · Target: E:\Game_58 (UE 5.8)
+Data: 2026-06-30 (PIE-verified 2026-07-01) · Branch: `feat/bttask-eat-wiring` (od `game-58`) · Status: **✅ DONE — PIE-VERIFIED (pełna pętla, twarde liczby)** · Target: E:\Game_58 (UE 5.8)
 Werdykt architekta: ścieżka A (okabluj rich model). Buduje na zshipowanym APPETITE_GRUBAS. Nadrzędne nad [[ICONSUMABLE_EAT_01]] (C++ parked-ready).
 
 ## RESOLVED (kontrakt zalockowany przez architekta)
@@ -50,7 +50,22 @@ Werdykt architekta: ścieżka A (okabluj rich model). Buduje na zshipowanym APPE
    b. `BP_NPC_AI` (kontroler): zaimplementuj event `PlayEatMontage(FoodActor)` → zagraj montaż jedzenia na pawnie; `StopEatMontage` → przerwij. Montaż MUSI nieść `AnimNotify_EatBite` ≥ BiteCount razy (inaczej sesja nie domknie się przez bites — domknie ją dopiero sytość).
 3. **PIE verify** — DoD niżej. **Zależny od SLEEP_FAINT_TRAP_01** (NPC mdleje z głodu snu przed turą jedzenia).
 
-## STOP — nie ruszam
-- NIE edytuję `BT_Exploration` ani `BP_NPC_AI` (ręczne kliknięcia po Twojej stronie).
-- NIE kasuję BP `BTTask_Eat.uasset` (deprecjacja po potwierdzeniu, że C++ task działa w PIE).
-- NIE odpalam PIE.
+## ✅ DOMKNIĘCIE 2026-07-01 (executor — dyrektor: „zrób to sam", ścieżka C++ zatwierdzona)
+**F1 ZREWIDOWANE (zgoda dyrektora):** odtwarzanie montażu przeniesione z BIE-w-BP do **C++** na `ANPCAIControllerBase` — `PlayEatMontage`/`StopEatMontage` implementowane w C++, montaż jako data-driven `UPROPERTY UAnimMontage* EatMontage` (set na CDO `BP_NPC_AI`, nie pin grafu). Powód: graf BP z object-pinem nie da się okabluować przez MCP bez korupcji. Konwencja „anim w BP" nagięta świadomie; referencja zostaje data-driven, montaż = asset BP.
+
+**Editor-build:** `Game_58Editor Win64 Development` → Result: Succeeded (po fixie C4458 hides member).
+
+**Okablowanie (wszystko przez MCP/Python, zweryfikowane readbackiem):**
+1. `AM_NPC_Eat` (`/Game/DocelowaGra/AI_NPC/`) zbudowany z `AS_NPC_Eat` (szkielet NPC `/Game/DocelowaGra/.../SK_Mannequin`), play_length 7.57 s, slot `DefaultSlot`, **4× notify `AnimNotify_EatBite`** @1.36/3.03/4.69/6.36 s.
+2. `BP_NPC_AI` CDO `EatMontage`=`AM_NPC_Eat` (KLUCZOWE: wymaga `compile_blueprint` PO set — inaczej auto-compile PIE resetuje inherited-default do null).
+3. `BT_Exploration`→`BTTask_Eat_0`: `FoodTable`=DT_FoodStats, `BiteCount`=4, `NearestFoodObjectKey`=**`NearestFoodObject`** (NIE `NearestFood` — gate mylił nazwę; realny klucz w BB_NPC).
+4. `BP_Food` `ConsumableComponent` już istniał; `FoodTableRowName` poprawiony z błędnego „DT_FoodStats" → **`Berries`** (realny wiersz).
+
+**PIE DoD #2 — SPEŁNIONE (twarde liczby, `Saved/Logs/Game_58.log`, oba NPC):**
+`Maslow.SeedRestedHungry` + `slomo 0.3` → `[Eat] claimed id=20 food=BP_Food_C_19 sig=high` → `StartEating Volume=1.0 bites=4 (Carb=15)` → `playing EatMontage=AM_NPC_Eat (len=7.57)` → **ConsumeBite×4 (bitesLeft 3→2→1→0, mealSize 0.2→0.5→0.8→1.0, Glucose 181→185→188→192, BodyFat 1502.8→1508.2)** → `StopEating(Finished)` → `[Eat] released id=20`. Runtime value change udowodniony. Bez montażu (pierwszy PIE) meal wisiał → montaż = potwierdzony bite-clock.
+
+## POZOSTAŁE DŁUGI (osobne, NIE blokują tej bramki)
+- **Depletion gating:** NPC re-claimuje to samo `id=20` w nieskończoność — `ConsumePortion(Frac)` woła się 4×/meal, ale food nie znika (OnDepleted→Destroy NIE wpięte — w gate było „opcjonalnie"). Następny slice: bind `OnDepleted` + gating dostępności afordancji wg `RemainingPortion`.
+- **Cancel-on-death w PIE:** kod jest (`AbortTask`+`EndPlay`+subsystem auto-free), ale NIE udowodniony w PIE (cykl ~1 s, trudny do trafienia śmiercią). Do osobnego verify.
+- **Deprecjacja BP `BTTask_Eat.uasset`:** sierota nadal w treści; skasować po potwierdzeniu (kanoniczny C++ task działa).
+- **Montaż real-time pacing:** kęsy padają szybciej niż sugeruje rozstaw notify — kosmetyka (montaż napędza, liczba kęsów poprawna).
