@@ -47,3 +47,5 @@ Thumbs.db
 # --- Local-only ---
 .claude/settings.local.json
 Tools/MapGen/.venv/
+MapData/caldreth_height16.png
+MapData/caldreth_height.r16
