@@ -4,6 +4,7 @@
 #include "GameFramework/Character.h"
 #include "NavigationSystem.h"
 #include "NavigationInvokerComponent.h"
+#include "Components/SceneComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 
@@ -12,6 +13,11 @@ DEFINE_LOG_CATEGORY_STATIC(LogNPCSpawner, Log, All);
 ANPCSpawner::ANPCSpawner()
 {
     PrimaryActorTick.bCanEverTick = false;
+
+    // Movable scene root so the spawner can be positioned on the terrain (it had no root before,
+    // which pinned it at world origin and made SetActorLocation a silent no-op).
+    RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+    RootComponent->SetMobility(EComponentMobility::Movable);
 
     // The spawner is itself a nav invoker: in invoker-only mode this seeds the dynamic navmesh
     // around the spawn area so GetRandomReachablePointInRadius has nav to sample before any NPC exists.
