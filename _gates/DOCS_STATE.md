@@ -65,7 +65,7 @@
 - Branch: `docs/pyramid-C-L-G` (już był checked-out, nie tworzyłem).
 - Commit **tylko** plików docs (NIE tknąłem untracked C++ `NPCSpawner.*`, `SurvivalPlayerController.*` — poza zakresem bramki).
 - **NIE push** (zgodnie z bramką).
-- Hash commita: *(uzupełniony po commit — patrz niżej)*.
+- Hash commita: **`a1e6d94`** (5 plików docs; branch bez upstreamu → potwierdzone niepushnięte).
 
 ## 5. BRAMKI / STOP
 - ✅ nie push · ✅ nie dotykałem kodu ani sceny · ✅ nie zmyśliłem commitów (❓ gdy niepewne) · ✅ linkowanie zamiast duplikacji.
