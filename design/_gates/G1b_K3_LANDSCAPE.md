@@ -97,7 +97,14 @@ Rebuild zielony → CaldrethMap → usunięto stary Landscape (DELETED_OLD=1) �
 - **KOLIZJA (line-trace 11 punktów): 11/11 trafień** ✅, surface Z **[669..83522]** — center ~83522 (szczyt wulkanu), farE 669 (wybrzeże). Kolizja gęsta → **navmesh-ready** (fix RecreateCollisionComponents działa).
 > DoD 2b spełniony: realny max Z ~90000 (nie założenie), kolizja potwierdzona traceami. **STOP 2c → proszę o Ctrl+S** (zapis CaldrethLandscape do CaldrethMap.umap) przed navmeshem.
 
-## 3. NAVMESH + DIAGNOZA CHODLIWOŚCI — STOP (po sekcji 2, po Ctrl+S)
+## 3. NAVMESH — próba #1 (default cell) → NIE SKALUJE do 10 km, restart + grubszy nav
+- **Recon nav:** mapa ma **18 stref** (Z=0), **5 POI**, Landscape, + istniejący NavMeshBoundsVolume + RecastNavMesh (z ery podłogi 8000×8000). Recast: **agent_max_slope=44°**, radius 35, height 144.
+- **bSpawnable (z zone_defs.json):** 9 stref spawnable (Beach×2, Savanna×3, Grassland×2, SlopeForest×1, Oasis×1); 9 non-spawnable (Ocean×2, Desert×2, Mountain, AshSlope, Caldera, River, Lava).
+- **Próba:** resize NavMeshBounds na pokrycie 1M×1M auto-wyzwolił **synchroniczny rebuild** → edytor zablokowany (2× timeout na read-only), **RAM 7.0→7.2 GB i rosnący** (~85 MB/6s), CPU narasta. Przyczyna: RecastNavMesh **domyślny cell-size (~19 uu) × 10 km = setki tysięcy kafli**.
+- **Werdykt:** navmesh nie skaluje do WorldSize=1 000 000 przy domyślnych ustawieniach. **Decyzja dyrektora: restart edytora + zgrubienie RecastNavMesh** (większy CellSize/TileSize; opcjonalnie ciaśniejszy bounds bez oceanu). Build nie zapisany → odrzucony przy restarcie; Landscape zapisany (Ctrl+S) ocalał.
+- **NASTĘPNY KROK (po reopen):** ustaw grubszy RecastNavMesh PRZED rozszerzeniem bounds → rebuild feasible → diagnoza chodliwości.
+
+## 3b. NAVMESH — próba #2 (grubszy) — PENDING reopen
 Plan: `NavMeshBoundsVolume` nad Landscape + `RecastNavMesh` bake → twarde liczby: % chodliwej powierzchni, ile z 18 stref (i ile bSpawnable) na navmeshu, gdzie nav urywa się na stożku wulkanu, agent-max-slope Recast. **Wymaga postawionego Landscape.**
 
 ## 4. RE-OSADZENIE STREF/POI — STOP (po sekcji 2/3)
