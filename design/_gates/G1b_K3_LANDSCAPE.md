@@ -18,7 +18,7 @@ Droga A `ALandscape` z heightmap · WorldSizeUU **1000000** (XY) · elevation 1.
 1. ✅ **RESOLVED (A2, 2026-07-02):** Landscape z C++ importu **renderuje się** — brakujący krok znaleziony: `Import` nie ustawiał `LandscapeMaterial` ani nie budował material-instance komponentów. Fix w `ImportCaldrethLandscape`: ustaw `LandscapeMaterial` (param, default WorldGridMaterial) PRZED `Import` + `UpdateAllComponentMaterialInstances()` PO. Re-import → widoczna powierzchnia (potwierdzone zrzutem). Pipeline w pełni data-driven (Opcja C spełniona). *Pozostaje kosmetyka: ładny materiał terenu + tuning światła (scena ciemna).*
 2. **Strefy: centroid biomu-pierścienia** ląduje w złym miejscu (Ocean/Beach markery na górze) — importer potrzebuje reprezentatywnego punktu.
 3. **Fine slope-gating nav @ 10km** — nachylenie→koszt L1 zamiast nav-gate (bo coarse nav afordowalny, drobny nie).
-4. Materiał Landscape + water/scena = polish osobno.
+4. ~~Materiał Landscape + water/scena = polish osobno.~~ **Częściowo DONE (2026-07-02):** światło (DirectionalLight=atmosphere-sun + SkyLight + SkyAtmosphere + PostProcessVolume zablokowana ekspozycja → scena jasna) + materiał terenu `M_CaldrethTerrain` (kolor po wysokości zieleń→brąz→biel, height-based) przypisany do Landscape przez re-import (C++ param). Zapisane w mapie + Content. **Weryfikacja tylko w żywym edytorze** — `capture_viewport` MCP nie respektuje `set_level_viewport_camera_info` (osobny viewport/bufor), więc zrzut nie do wykadrowania. Zostaje: woda, cień/jakość, ew. tekstury terenu.
 
 ## 0. AUDYT
 ### Build.cs — czego trzeba do heightmap-import
