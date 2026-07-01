@@ -17,6 +17,10 @@
 #include "Dom/JsonValue.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Landscape.h"                 // ALandscape, ALandscape::Import
+#include "LandscapeProxy.h"            // FLandscapeImportLayerInfo
+#include "LandscapeInfo.h"             // ULandscapeInfo
+#include "LandscapeImportHelper.h"     // ELandscapeImportAlphamapType
 
 #define LOCTEXT_NAMESPACE "CaldrethImport"
 
@@ -328,6 +332,128 @@ int32 UCaldrethImportLibrary::ImportCaldrethPOIs(
 		Placed, *Path, WorldSizeUU, Skipped);
 
 	return Placed;
+}
+
+AActor* UCaldrethImportLibrary::ImportCaldrethLandscape(
+	FString HeightmapR16Path,
+	int32 SizeVerts,
+	int32 SubsectionSizeQuads,
+	int32 NumSubsections,
+	float WorldSizeUU,
+	float ZScale,
+	float ZOffsetUU)
+{
+	// --- 1. Editor world -------------------------------------------------------
+	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+	if (!IsValid(World))
+	{
+		UE_LOG(LogCaldrethImport, Error, TEXT("ImportCaldrethLandscape: no editor world available."));
+		return nullptr;
+	}
+
+	// --- 2. Validate the component layout: (SizeVerts-1) quads must tile evenly ----
+	const int32 TotalQuads = SizeVerts - 1;
+	const int32 ComponentSizeQuads = NumSubsections * SubsectionSizeQuads;
+	if (SizeVerts < 2 || ComponentSizeQuads <= 0 || (TotalQuads % ComponentSizeQuads) != 0)
+	{
+		UE_LOG(LogCaldrethImport, Error,
+			TEXT("ImportCaldrethLandscape: bad layout — (SizeVerts-1)=%d not divisible by NumSubsections*SubsectionSizeQuads=%d."),
+			TotalQuads, ComponentSizeQuads);
+		return nullptr;
+	}
+	const int32 ComponentCount = TotalQuads / ComponentSizeQuads;
+
+	// --- 3. Resolve + read the .r16 (little-endian uint16) ---------------------
+	FString Path = HeightmapR16Path;
+	if (Path.IsEmpty())
+	{
+		Path = FPaths::ProjectDir() / TEXT("MapData/caldreth_height_505.r16");
+	}
+	if (!FPaths::FileExists(Path))
+	{
+		UE_LOG(LogCaldrethImport, Error, TEXT("ImportCaldrethLandscape: heightmap not found: %s"), *Path);
+		return nullptr;
+	}
+
+	TArray<uint8> Raw;
+	if (!FFileHelper::LoadFileToArray(Raw, *Path))
+	{
+		UE_LOG(LogCaldrethImport, Error, TEXT("ImportCaldrethLandscape: failed to read %s"), *Path);
+		return nullptr;
+	}
+
+	const int32 NumVerts = SizeVerts * SizeVerts;
+	if (Raw.Num() != NumVerts * 2)
+	{
+		UE_LOG(LogCaldrethImport, Error,
+			TEXT("ImportCaldrethLandscape: %s is %d bytes, expected %d (%dx%d x 2). Wrong SizeVerts?"),
+			*Path, Raw.Num(), NumVerts * 2, SizeVerts, SizeVerts);
+		return nullptr;
+	}
+
+	TArray<uint16> Heights;
+	Heights.SetNumUninitialized(NumVerts);
+	uint16 MinH = MAX_uint16, MaxH = 0;
+	for (int32 i = 0; i < NumVerts; ++i)
+	{
+		const uint16 H = static_cast<uint16>(Raw[i * 2] | (static_cast<uint16>(Raw[i * 2 + 1]) << 8)); // LE
+		Heights[i] = H;
+		MinH = FMath::Min(MinH, H);
+		MaxH = FMath::Max(MaxH, H);
+	}
+
+	// --- 4. Spawn the Landscape actor, centered on origin ----------------------
+	const float QuadSizeUU = WorldSizeUU / static_cast<float>(TotalQuads);
+	const FVector Location(-WorldSizeUU * 0.5f, -WorldSizeUU * 0.5f, ZOffsetUU);
+	const FVector Scale3D(QuadSizeUU, QuadSizeUU, ZScale);
+	const FTransform SpawnTM(FQuat::Identity, Location, Scale3D);
+
+	const FScopedTransaction Transaction(LOCTEXT("ImportLandscape", "Import Caldreth Landscape"));
+
+	ALandscape* Landscape = World->SpawnActor<ALandscape>(ALandscape::StaticClass(), SpawnTM);
+	if (!IsValid(Landscape))
+	{
+		UE_LOG(LogCaldrethImport, Error, TEXT("ImportCaldrethLandscape: failed to spawn ALandscape."));
+		return nullptr;
+	}
+	Landscape->bCanHaveLayersContent = false;
+	Landscape->SetActorLabel(TEXT("CaldrethLandscape"));
+
+	// --- 5. Import height data (single default layer, no weightmaps) -----------
+	const FGuid LandscapeGuid = FGuid::NewGuid();
+
+	TMap<FGuid, TArray<uint16>> HeightDataPerLayer;
+	HeightDataPerLayer.Add(FGuid(), MoveTemp(Heights)); // FGuid() == the persistent/default edit layer
+
+	TMap<FGuid, TArray<FLandscapeImportLayerInfo>> MaterialLayerDataPerLayer;
+	MaterialLayerDataPerLayer.Add(FGuid(), TArray<FLandscapeImportLayerInfo>());
+
+	Landscape->Import(
+		LandscapeGuid,
+		0, 0, TotalQuads, TotalQuads,          // MinX, MinY, MaxX, MaxY (inclusive quad extents)
+		NumSubsections, SubsectionSizeQuads,
+		HeightDataPerLayer,
+		nullptr,
+		MaterialLayerDataPerLayer,
+		ELandscapeImportAlphamapType::Additive);
+
+	// --- 6. Finalize -----------------------------------------------------------
+	ULandscapeInfo* Info = Landscape->CreateLandscapeInfo();
+	if (Info)
+	{
+		Info->UpdateLayerInfoMap(Landscape);
+	}
+	Landscape->PostEditChange();
+
+	UE_LOG(LogCaldrethImport, Log,
+		TEXT("ImportCaldrethLandscape: %dx%d verts (%d comps of %d quads), from %s. 16-bit range [%u..%u]. ")
+		TEXT("Scale=(%.2f,%.2f,%.2f) Loc=(%.0f,%.0f,%.0f). Expected world Z: min~%.0f max~%.0f UU."),
+		SizeVerts, SizeVerts, ComponentCount * ComponentCount, ComponentSizeQuads, *Path, MinH, MaxH,
+		QuadSizeUU, QuadSizeUU, ZScale, Location.X, Location.Y, Location.Z,
+		ZOffsetUU + (static_cast<float>(MinH) - 32768.f) / 128.f * ZScale,
+		ZOffsetUU + (static_cast<float>(MaxH) - 32768.f) / 128.f * ZScale);
+
+	return Landscape;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -13,6 +13,8 @@ public class Stan_PierwotnyEditor : ModuleRules
 
 		// UnrealEd = GEditor / editor world / FScopedTransaction; ImageWrapper = decode the biome PNG;
 		// Json = parse caldreth_manifest.json for the POI import.
-		PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", "ImageWrapper", "Json" });
+		// Landscape = ALandscape / ULandscapeInfo / FLandscapeImportLayerInfo for data-driven heightmap import
+		// (LandscapeEditor = ELandscapeImportAlphamapType + edit-layer helpers).
+		PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", "ImageWrapper", "Json", "Landscape", "LandscapeEditor", "LandscapeEditorUtilities" });
 	}
 }
