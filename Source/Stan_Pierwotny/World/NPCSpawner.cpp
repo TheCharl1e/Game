@@ -31,9 +31,13 @@ void ANPCSpawner::BeginPlay()
     if (bSpawnOnBeginPlay)
     {
         // Defer so the spawner invoker's dynamic navmesh is built before we sample it.
+        // (Lambda wrapper: SpawnWave returns int32, so it can't bind as a void timer callback directly.)
         if (SpawnDelay > 0.f)
         {
-            GetWorldTimerManager().SetTimer(SpawnTimerHandle, this, &ANPCSpawner::SpawnWave, SpawnDelay, false);
+            GetWorldTimerManager().SetTimer(
+                SpawnTimerHandle,
+                FTimerDelegate::CreateLambda([this]() { SpawnWave(); }),
+                SpawnDelay, false);
         }
         else
         {
