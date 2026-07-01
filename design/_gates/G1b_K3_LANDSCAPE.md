@@ -46,6 +46,29 @@ Wejście `MapData/caldreth_data.npz` (elevation 512×512 f32). Wyjście → `Map
 - **STOP — potrzebne:** uruchom edytor **Game_58 (5.8)** na `Content/DocelowaGra/CaldrethMap.umap`, pojedyncza instancja (unikać kolizji portu 2. edytora), plugin MCPUnreal + Python Editor Script Plugin aktywne. Po starcie wznawiam: import 505 r16 → read-back min/max Z → Ctrl+S.
 - READ-BACK (min/max Z realnej geometrii) = **PENDING** (asekuracja na dryf MCP wg gate 2b).
 
+## 2 d. (2026-07-01, edytor wstał) — DWA BLOKERY, STOP przed importem
+Edytor Game_58 żywy (`execute_script` działa; stdout nie wraca → zapis do `Saved/*.txt` + odczyt z dysku, znany wzorzec).
+
+### BLOKER 1 — zła mapa
+`get_editor_world()` = **`Game`** (`/Game/DocelowaGra/Game.Game`), **NIE `CaldrethMap`**. Gate wprost: import tylko na CaldrethMap. → trzeba `Content/DocelowaGra/CaldrethMap.umap` (File→Open Level lub `LevelEditorSubsystem.load_level`; nie przełączam sam — ryzyko utraty niezapisanych zmian na Game.umap).
+
+### BLOKER 2 — Python nie ma file-importu Landscape (reality ≠ plan „MCP Python")
+Introspekcja `unreal` (5.8) wykazała:
+- `Landscape`/`LandscapeProxy` wystawiają **tylko** `landscape_import_heightmap_from_render_target(rt, import_height_from_rg_channel, edit_layer_index)` — **nadpisuje heightmapę ISTNIEJĄCEGO** Landscape z `TextureRenderTarget2D` (RTF_RGBA16f/32f/8). **Nie tworzy** Landscape z pliku.
+- `LandscapeSubsystem`, `EditorLandscapeLibrary`, `LandscapeEditorObject`, `LandscapeInfo`, `LandscapeImportHeightmapData`, `new_landscape` = **ABSENT**.
+- **Wniosek:** Python nie zbuduje bazowego Landscape 505×505 z r16. RT-import wymaga już istniejącej bazy o właściwej rozdzielczości → sama baza to blocker.
+
+### OPCJE (decyzja dyrektora — nie rozstrzygam)
+| Opcja | Jak | Plusy | Minusy |
+|---|---|---|---|
+| **A — ręczny import w edytorze (REKOMENDACJA)** | Landscape Mode→Manage→Import from File → `MapData/caldreth_height_505.r16`, 505×505, wg moich dokładnych ustawień | najszybciej (~2 min), najpewniej, jednorazowy statyczny bake, zero rebuildu | ręczny krok dyrektora (nie w pełni data-driven) |
+| B — hybryda | dyrektor tworzy PŁASKI Landscape 505×505, ja wpycham wysokości Python RT-import (RGBA16f R-channel) | częściowo Python | więcej kroków, ryzyko precyzji RT, i tak ręczna baza |
+| C — C++ util (path iii) | `+= Landscape/LandscapeEditor` w Build.cs + `ImportCaldrethLandscape` (`FLandscapeImportHelper`/`ALandscape::Import`) + rebuild (edytor zamknięty) | w pełni data-driven, „C++=mózg", powtarzalne | Build.cs edit + rebuild = twarda bramka, cięższe |
+
+**Gotowe ustawienia dla Opcji A** (podam dokładnie po Twoim „tak"): rozmiar 505 (63 quads × 8 komponentów, sekcja 63×1); Scale X=Y ≈ **1984.13** (1000000/504 quadów); Scale Z ≈ **17578** + Location.Z ≈ **+45000** → elev0→Z0, sea_level0.2→Z18000, elev1.0→Z90000; wyśrodkowany na origin.
+
+**STOP — proszę o decyzję:** (1) otwórz/pozwól otworzyć **CaldrethMap**; (2) wybierz ścieżkę importu **A / B / C**. Po tym wznawiam: import → **read-back realnego max Z** → Twój Ctrl+S → navmesh.
+
 ## 3. NAVMESH + DIAGNOZA CHODLIWOŚCI — STOP (po sekcji 2)
 Plan: `NavMeshBoundsVolume` nad Landscape + `RecastNavMesh` bake → twarde liczby: % chodliwej powierzchni, ile z 18 stref (i ile bSpawnable) na navmeshu, gdzie nav urywa się na stożku wulkanu, agent-max-slope Recast. **Wymaga postawionego Landscape.**
 
