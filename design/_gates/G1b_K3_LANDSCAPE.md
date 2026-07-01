@@ -146,6 +146,16 @@ Rebuild zielony → CaldrethMap → usunięto stary Landscape (DELETED_OLD=1) �
 - **Rebuild:** zmiana runtime-modułu (nowe UPROPERTY/komponent) → **pełny rebuild z zamkniętym edytorem** (Live Coding nie łyknie).
 - **PO reopen:** RecastNavMesh `RuntimeGeneration=Dynamic` + **przywrócić drobny cell (~50)** (obszar teraz ograniczony) → nav wokół spawnera w edytorze → **PIE-verify**: NPC się rusza, nav podąża, drobny, stromizny odcięte.
 
+## 6. NAV INVOKERS — PIE-VERIFIED (na terenie) ✅
+- **Fix latentnego buga:** `ANPCSpawner` nie miał scene-roota → był przypięty do origin, `SetActorLocation` = no-op. Dodano ruchomy root (C++). Teraz spawner przesuwalny.
+- **Scena:** spawner przeniesiony na Landscape (**-200000,-200000, Z 38580 ≈ 384 m**), RecastNavMesh `RuntimeGeneration=Dynamic`, mapa zapisana (MCP `save_current_level`).
+- **PIE (log-backed, reprodukowalne 3×):** `[Spawner] Spawned 50/50 NPCs within 3500 uu of (-200000,-200000,38580) (nav misses=0)`.
+  - **0 nav misses** = spawner-invoker zbudował dynamiczny navmesh **na terenie wulkanu** (nie na płaskiej podłodze) → deadlock invoker-only złamany, 50 NPC na Landscape.
+  - Każdy NPC niesie `UNavigationInvokerComponent` → nav podąża za nimi po 10-km wyspie.
+- **Efekt:** nav-invokery **działają na docelowym terenie** — architektura potwierdzona (feasible nav na 10 km wokół agentów).
+- **Auto-zarządzanie edytorem:** dyrektor autoryzował — Claude sam save(MCP)→kill→rebuild→relaunch→poll:8090 (jedna instancja). VRAM wyczerpywał się po długiej sesji → restart procesu odzyskuje.
+- **DŁUG WIZUALNY (osobny od nav):** mapa ma zepsute oświetlenie (warning directional light) + Landscape = `WorldGridMaterial` (domyślny) → zrzuty PIE/edytora czarne. Potrzebne: sprawny DirectionalLight+SkyLight + materiał Landscape. Do „wideo" z widocznymi NPC. NIE blokuje funkcjonalności.
+
 ## OPEN (decyzja dyrektora)
 1. **Nav invokers (wybrane):** dynamiczny nav wokół NPC → pozwala na DROBNY cell (bounded area). Wymaga: config (`bGenerateNavigationOnlyAroundNavigationInvokers`, RuntimeGeneration=Dynamic) + `UNavigationInvokerComponent` na NPC + **PIE-verify**. To osobny pod-etap (C++/BP + PIE). Plan gotowy — czekam na „tak" na sekwencję (config → invoker na NPC → PIE).
 2. **Importer stref — reprezentatywny punkt** zamiast centroidu (fix markerów pierścieni)? Osobny gate — robimy?
