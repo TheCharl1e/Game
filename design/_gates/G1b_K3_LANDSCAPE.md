@@ -104,7 +104,27 @@ Rebuild zielony → CaldrethMap → usunięto stary Landscape (DELETED_OLD=1) �
 - **Werdykt:** navmesh nie skaluje do WorldSize=1 000 000 przy domyślnych ustawieniach. **Decyzja dyrektora: restart edytora + zgrubienie RecastNavMesh** (większy CellSize/TileSize; opcjonalnie ciaśniejszy bounds bez oceanu). Build nie zapisany → odrzucony przy restarcie; Landscape zapisany (Ctrl+S) ocalał.
 - **NASTĘPNY KROK (po reopen):** ustaw grubszy RecastNavMesh PRZED rozszerzeniem bounds → rebuild feasible → diagnoza chodliwości.
 
-## 3b. NAVMESH — próba #2 (grubszy) — PENDING reopen
+## 3b. NAVMESH — próba #2 (grubszy) — ZBUDOWANY + DIAGNOZA
+- **Config:** cell_size w `nav_mesh_resolution_params` (default było **19** → (1e6/19)²≈2.7 mld cells = eksplozja #1). Podniesione; tile_size_uu=25000, pool=2048.
+- **TWARDY LIMIT SKALI:** Recast wymusza `cell_size ≥ tile_size/max_cells_per_tile` → przy 10 km i puli kafli cell **wpada na ~397 (4 m)**, nie da się zejść niżej bez ~27000 kafli = eksplozja RAM. **Przy WorldSize=1 000 000 (10 km) navmesh rozróżniający stromiznę na poziomie metra jest NIEWYKONALNY w rozsądnej pamięci.** Build @ cell 397: RAM stabilny 4 GB, ~441/1764 kafli.
+- **DIAGNOZA CHODLIWOŚCI (grid 16×16 = 256 + line-trace + project_point_to_navigation, tight extent):**
+  - **Chodliwa powierzchnia: 84.0%** (215/256); **16% odcięte** = najstromsze flanki stożka.
+  - **Strefy na navmeshu: 14/18.** **Spawnable na navmeshu: 7/9 (78%) → bramka bezpieczeństwa PASS** (≥50%, brak re-tune Z).
+  - Non-walk strefy: Mountain(826m ✅ stromo), SlopeForest, Savanna, River.
+  - agent_max_slope Recast = **44°** (do przyszłego kosztu-nachylenia).
+- **ZNALEZISKO — coarse nav zawyża chodliwość:** przy cell 4 m nawet szczyt (835m) bywa WALK=True (uśrednia stożek). 84% to górna granica; drobny nav ciąłby więcej — ale drobny jest niewykonalny (patrz limit skali).
+- **ZNALEZISKO #2 — strefy NIE pokrywają się z terenem (XY):** surfZ pod strefami: **Beach@714m, Ocean@337m** (powinny być nisko) vs Caldera@883m/Mountain@826m (poprawnie wysoko). Część stref (centralne/wysokie) pasuje, brzegowe/niskie NIE → **strefy (import historyczny) mają XY z INNEGO biome.png niż obecny Landscape.** Naiwne re-osadzenie (sekcja 4, tylko Z-drop) posadzi je na złym terenie — trzeba re-wyprowadzić XY ze świeżego manifestu/maski. → **sekcja 4 = STOP, decyzja dyrektora.**
+
+## WERDYKT K3
+- ✅ Landscape stoi z heightmapy (wulkan ~900m, pierścienie), real max Z 89951 (read-back).
+- ✅ Navmesh zbakowany; **wyspa PRZECHODNIA (84% chodliwe, ścieżki po terenie istnieją)**; spawnable 7/9 na nav (PASS).
+- ⚠️ Drobny (slope-gating) navmesh **niewykonalny przy 10 km** → decyzja: (a) zaakceptować coarse nav + nachylenie jako koszt L1 (nie nav-gate), (b) mniejszy WorldSize, (c) nav invokers (dynamiczny nav wokół NPC).
+- ⚠️ Strefy XY rozjechane z Landscape → re-osadzenie wymaga re-derywacji XY (nie sam Z-drop).
+
+## OPEN (decyzja dyrektora)
+1. **Rozdzielczość nav @ 10 km:** akceptujemy coarse (4 m, nachylenie→koszt L1) / zmniejszamy WorldSize / nav invokers?
+2. **Strefy vs Landscape (XY mismatch):** re-import stref ze świeżego `caldreth_biome.png` (spójny z heightmapą) zamiast Z-drop? (osobny gate)
+3. Zapis mapy (nav data + navbounds + config) — Twój Ctrl+S, gdy zdecydujemy kierunek?
 Plan: `NavMeshBoundsVolume` nad Landscape + `RecastNavMesh` bake → twarde liczby: % chodliwej powierzchni, ile z 18 stref (i ile bSpawnable) na navmeshu, gdzie nav urywa się na stożku wulkanu, agent-max-slope Recast. **Wymaga postawionego Landscape.**
 
 ## 4. RE-OSADZENIE STREF/POI — STOP (po sekcji 2/3)
