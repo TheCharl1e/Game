@@ -90,7 +90,14 @@ Zmiany (patch, nie regeneracja):
 
 **STOP — proszę: zamknij edytor BEZ zapisu** (odrzuca zepsuty Landscape) → ja rebuild → otwórz CaldrethMap → czysty re-import (skala+kolizja poprawne od startu) → read-back bounds+trace (wszystkie trafienia) → Twój Ctrl+S → navmesh.
 
-## 3. NAVMESH + DIAGNOZA CHODLIWOŚCI — STOP (po sekcji 2)
+## 2 g. (2026-07-01) — CZYSTY RE-IMPORT PO FIXIE — READ-BACK ZIELONY
+Rebuild zielony → CaldrethMap → usunięto stary Landscape (DELETED_OLD=1) → `ImportCaldrethLandscape` czysty:
+- **Skala poprawna OD STARTU:** `(1984.127, 1984.127, 175.78)` — fix (SetActorTransform po Import) działa.
+- **Bounds:** XY span **1000000×1000000**, Z **0.3..89951.6** (≈0..90000), wyśrodkowany.
+- **KOLIZJA (line-trace 11 punktów): 11/11 trafień** ✅, surface Z **[669..83522]** — center ~83522 (szczyt wulkanu), farE 669 (wybrzeże). Kolizja gęsta → **navmesh-ready** (fix RecreateCollisionComponents działa).
+> DoD 2b spełniony: realny max Z ~90000 (nie założenie), kolizja potwierdzona traceami. **STOP 2c → proszę o Ctrl+S** (zapis CaldrethLandscape do CaldrethMap.umap) przed navmeshem.
+
+## 3. NAVMESH + DIAGNOZA CHODLIWOŚCI — STOP (po sekcji 2, po Ctrl+S)
 Plan: `NavMeshBoundsVolume` nad Landscape + `RecastNavMesh` bake → twarde liczby: % chodliwej powierzchni, ile z 18 stref (i ile bSpawnable) na navmeshu, gdzie nav urywa się na stożku wulkanu, agent-max-slope Recast. **Wymaga postawionego Landscape.**
 
 ## 4. RE-OSADZENIE STREF/POI — STOP (po sekcji 2/3)
