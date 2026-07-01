@@ -21,6 +21,7 @@
 #include "LandscapeProxy.h"            // FLandscapeImportLayerInfo
 #include "LandscapeInfo.h"             // ULandscapeInfo
 #include "LandscapeImportHelper.h"     // ELandscapeImportAlphamapType
+#include "Materials/MaterialInterface.h" // UMaterialInterface (LandscapeMaterial)
 
 #define LOCTEXT_NAMESPACE "CaldrethImport"
 
@@ -341,7 +342,8 @@ AActor* UCaldrethImportLibrary::ImportCaldrethLandscape(
 	int32 NumSubsections,
 	float WorldSizeUU,
 	float ZScale,
-	float ZOffsetUU)
+	float ZOffsetUU,
+	UMaterialInterface* LandscapeMaterial)
 {
 	// --- 1. Editor world -------------------------------------------------------
 	UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
@@ -418,6 +420,15 @@ AActor* UCaldrethImportLibrary::ImportCaldrethLandscape(
 	}
 	Landscape->SetActorLabel(TEXT("CaldrethLandscape"));
 
+	// Assign a landscape material BEFORE import so the per-component material instances get built and
+	// the surface actually renders. Without this the C++ import produces collision-only (invisible) terrain.
+	UMaterialInterface* Mat = LandscapeMaterial;
+	if (!Mat)
+	{
+		Mat = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/EngineMaterials/WorldGridMaterial"));
+	}
+	Landscape->LandscapeMaterial = Mat;
+
 	// --- 5. Import height data (single default layer, no weightmaps) -----------
 	const FGuid LandscapeGuid = FGuid::NewGuid();
 
@@ -450,6 +461,11 @@ AActor* UCaldrethImportLibrary::ImportCaldrethLandscape(
 	{
 		Info->UpdateLayerInfoMap(Landscape);
 	}
+
+	// Build per-component material instances so the components have a render material — this is the step
+	// the editor's import tool does that raw ALandscape::Import skips (missing = invisible surface).
+	Landscape->UpdateAllComponentMaterialInstances();
+
 	Landscape->PostEditChange();
 
 	UE_LOG(LogCaldrethImport, Log,

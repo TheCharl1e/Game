@@ -13,6 +13,7 @@
 #include "CaldrethImportLibrary.generated.h"
 
 class UDataTable;
+class UMaterialInterface;
 
 // Editor-side log category. The runtime LogCaldreth lives in the Stan_Pierwotny module and
 // is not exported across modules, so the import tool logs through its own category here.
@@ -75,6 +76,8 @@ public:
 	 * @param WorldSizeUU       Island edge in unreal units (XY), centered on origin.
 	 * @param ZScale            Landscape actor Scale.Z (full 16-bit span -> 65535 * (1/128) * ZScale UU).
 	 * @param ZOffsetUU         Actor Location.Z offset so elevation 0 lands at this Z minus half-span.
+	 * @param LandscapeMaterial Material assigned before import so component material instances build and the
+	 *                          surface actually RENDERS. Null = /Engine/EngineMaterials/WorldGridMaterial.
 	 * @return Spawned ALandscape (nullptr on failure).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Caldreth|Import")
@@ -85,5 +88,6 @@ public:
 		int32 NumSubsections = 1,
 		float WorldSizeUU = 1000000.f,
 		float ZScale = 175.78f,
-		float ZOffsetUU = 45000.f);
+		float ZOffsetUU = 45000.f,
+		UMaterialInterface* LandscapeMaterial = nullptr);
 };
