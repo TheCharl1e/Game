@@ -6,6 +6,20 @@
 ## RESOLVED (dyrektor):
 Droga A `ALandscape` z heightmap · WorldSizeUU **1000000** (XY) · elevation 1.0→**90000 UU** (~900m), sea_level 0.2→Z bazowy · teren **STATYCZNY**. Poza zakresem: elastyczność generatora, koszt-nachylenia.
 
+## GATE CLOSE (2026-07-01) — status
+**DONE (funkcjonalnie, log/read-back-backed):**
+- ✅ MapGen run + heightmap util (505 r16), pipeline data żyje po migracji
+- ✅ `ImportCaldrethLandscape` (C++ data-driven) — Landscape stoi, read-back real Z 0..89951, kolizja 11/11
+- ✅ Navmesh + diagnoza: 84% chodliwe, 7/9 spawnable na nav; **twardy limit: drobny nav niewykonalny @ 10km**
+- ✅ **Nav invokers PIE-verified: 50/50 NPC na terenie (384m), 0 misses** (spawner+root na wulkanie, dynamic nav)
+- ✅ Oświetlenie sceny (0→DirLight+SkyLight+SkyAtmosphere)
+
+**DEBTS / OPEN (dla architekta):**
+1. **Landscape z C++ importu NIE renderuje wizualnie** (kolizja OK) — Opcja C dług; Opcja A (manual) renderuje. Wideo olane (decyzja dyrektora).
+2. **Strefy: centroid biomu-pierścienia** ląduje w złym miejscu (Ocean/Beach markery na górze) — importer potrzebuje reprezentatywnego punktu.
+3. **Fine slope-gating nav @ 10km** — nachylenie→koszt L1 zamiast nav-gate (bo coarse nav afordowalny, drobny nie).
+4. Materiał Landscape + water/scena = polish osobno.
+
 ## 0. AUDYT
 ### Build.cs — czego trzeba do heightmap-import
 - **Runtime** `Stan_Pierwotny.Build.cs`: Core/CoreUObject/Engine/InputCore/GameplayStateTree/StateTree/EnhancedInput/AIModule/**NavigationSystem**/UMG. Brak Landscape.
