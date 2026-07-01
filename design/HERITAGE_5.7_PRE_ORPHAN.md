@@ -17,7 +17,7 @@
 | **Body/senses** (26 części, EBodyPart helper) | `6e91372` + init `e14fa24` | 2026-06-16/12 | (w initial-import; obecne w 5.8) |
 
 > ✅ Luka zamknięta: `Tools/MapGen/zone_defs.json` skopiowany z E:\Game (byte-identical, tracked) → `E:\Game_58\Tools\MapGen\`. Wszystkie źródła tej ery obecne w 5.8.
-> ⚠️ Reszta toolchainu MapGen (`build_all.py`, `caldreth_mapgen.py`, `caldreth_render.py`) nadal tylko w E:\Game — do decyzji czy migrować (osobno).
+> ✅ Cały toolchain MapGen zmigrowany do 5.8 (2026-07-01): `zone_defs.json` + `build_all.py` + `caldreth_mapgen.py` + `caldreth_render.py` (byte-identical z E:\Game). To generator za blockerem G1b MAP-GATE (manifest/maska/npz → `ACaldrethZone` placement). Env: numpy/matplotlib/scipy. Output → `<ProjectRoot>/MapData/`.
 
 ## PEŁNY REJESTR (44 commity, `e14fa24` → `b4edc36`, chronologicznie malejąco)
 Format: `hash | data | temat`. Bloby (Content/Binaries/Plugins) NIE w KANON — tylko w bundlu.
