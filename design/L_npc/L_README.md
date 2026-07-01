@@ -21,3 +21,6 @@ ale niższa nigdy nie zależy od wyższej. Świat (oś C) jest czytany przez int
 | L5 | `L5_actualization` — samorealizacja/eureki/geopolityka | ⬜ |
 
 > Treść warstw migrowana w ETAP 2 (per-warstwa, osobna sesja) wg `_gates/MIGRATION_MAP.md`.
+
+> **KOREKTA arbitrażu (L0/L1):** wybór potrzeby to NIE sztywna drabina — trójstan `ENeedState {Satisfied, Lacking, Needing, Critical}`
+> skaluje intensywność, a wygrywa najwyższe `waga × intensywność` (arbitraż ważony). Modele: `../MECHANICS_BACKLOG.md` → **NEED-1 / ARB-1**.

@@ -56,6 +56,11 @@ WBP_NPC_Inspector ✅ (klik NPC → staty/survival na żywo). Dołożyć: god-vi
 ## GRANICE G1 (świadomie NIE)
 Brak L2+ (własność/kradzież/spiżarnia), grup/ognisk (L3), reputacji/frakcji (L4), detektywa/Eurek (L5), pełnej pogody/słońca sezonowego, narzędzi/craftingu, polowania (→G2), postaci gracza.
 
+## MECHANIKI W KOLEJCE
+Luźne mechaniki przypisane do etapów (ruch/energia, adaptacja przez użycie, stealth/ambush, reżim nocny,
+trójstan potrzeby, arbitraż ważony) → **`../MECHANICS_BACKLOG.md`** (single source, nie duplikować tu).
+G1a bierze z niego: E1-E3 (stamina/wytrzymałość/gaits), NEED-1 (trójstan), ARB-1 (arbitraż ważony); G1b: S1-S3, N1-N3, FAUNA, PERC-DN.
+
 ## DECYZJE
 - Polowanie → G2 (RESOLVED). W G1 wilk=zagrożenie (testuje L0); jeleń=żywy prey bez mechaniki mięsa.
 - p_win w L0: bodziec niesie prawdę o T (Slice1-2); pamięć-estymator = Slice4.
