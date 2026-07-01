@@ -40,6 +40,12 @@ Wejście `MapData/caldreth_data.npz` (elevation 512×512 f32). Wyjście → `Map
 - **Wymaga wyboru:** (a) rozdzielczość (505/509/1009), (b) ścieżka importu (i/ii/iii — jeśli iii to Build.cs edit).
 - Z-scale Landscape: przy komponencie i XY-scale = `1000000/(res-1)` na oś; Z-scale dobrany tak, że zakres 16-bit = 90000 UU. Dokładne liczby policzę po wyborze rozdzielczości.
 
+## 2 c.d. (2026-07-01, RESOLVED: 505×505, MCP Python, zgoda) — PRÓBA WYKONANIA → BLOCKED (edytor down)
+- **Prep DONE:** `Tools\MapGen\` resample 512→**505×505** (bilinear, scipy zoom) → `MapData/caldreth_height_505.r16` = **510050 B** (=505×505×2 ✅), min16 0 / **max16 65501** (szczyt przetrwał resample). Gitignored.
+- **MCP niedostępny:** `mcp-unreal :8090` → connection refused; `monolith :9316` → „Unreal Editor not running". **Edytor Game_58 NIE działa** → import Landscape (MCP Python) niemożliwy.
+- **STOP — potrzebne:** uruchom edytor **Game_58 (5.8)** na `Content/DocelowaGra/CaldrethMap.umap`, pojedyncza instancja (unikać kolizji portu 2. edytora), plugin MCPUnreal + Python Editor Script Plugin aktywne. Po starcie wznawiam: import 505 r16 → read-back min/max Z → Ctrl+S.
+- READ-BACK (min/max Z realnej geometrii) = **PENDING** (asekuracja na dryf MCP wg gate 2b).
+
 ## 3. NAVMESH + DIAGNOZA CHODLIWOŚCI — STOP (po sekcji 2)
 Plan: `NavMeshBoundsVolume` nad Landscape + `RecastNavMesh` bake → twarde liczby: % chodliwej powierzchni, ile z 18 stref (i ile bSpawnable) na navmeshu, gdzie nav urywa się na stożku wulkanu, agent-max-slope Recast. **Wymaga postawionego Landscape.**
 
