@@ -3,12 +3,13 @@
 > ⚠️ Commity/statusy spisane z naszych raportów i logów — **Claude Code: zweryfikuj wobec żywego `git log`**
 > i uzupełnij różnice. Legenda: ✅ zbudowane+PIE · 🔨 częściowe/w toku · 📐 zaprojektowane (kod nie) · ⬜ nie zaczęte.
 >
-> **[WERYFIKACJA 2026-07-01, Claude Code, branch docs/pyramid-C-L-G]** — kolumna commitów sprawdzona
-> wobec `git log` w **E:\Game (5.7)** (tam żyje kod build-systemów) i **E:\Game_58 (5.8)**. Legenda commitów:
-> **✅hash** = osiągalny w żywym grafie (E:\Game, branch `feat/l3-05-p2p-slice1`); **❓hash** = obiekt istnieje
-> tylko jako *dangling* (pre-orphan clean-start `573830d`) → przetrwał wyłącznie w `E:\Game-history-2026-06-21.bundle`,
-> NIE na żadnym branchu → **do potwierdzenia**. **UWAGA:** 0 build-commitów jest w repo Game_58 — Game_58 ma osobną
-> linię (migracja/tooling/eat-loop). Pełny DIFF: `_gates/DOCS_STATE.md`.
+> **[WERYFIKACJA + KONSOLIDACJA 2026-07-01, Claude Code, branch docs/pyramid-C-L-G]** — kolumna commitów
+> sprawdzona wobec żywego `git log`. Legenda commitów: **✅hash** = osiągalny w żywym grafie;
+> **❓hash** = pre-orphan (clean-start `573830d`), przetrwał tylko w `E:\Game-history-2026-06-21.bundle`.
+> **KONSOLIDACJA (lean):** lean linia post-orphan z E:\Game (52 commity, wszystkie 11× ✅) zaimportowana
+> do **Game_58 jako branch `heritage/5.7-active`** (tip `ba7ec7c`) → **11× ✅ teraz reachable w KANON**
+> (`.git` 883 KB→1.1 MB, Content NIE wciągnięty). 5× ❓ (pre-orphan) świadomie NIE importowane — bundle
+> niesie ~3.1 GB starego Contentu; pozostają zarchiwizowane w bundlu. Pełny DIFF: `_gates/DOCS_STATE.md`.
 
 ## ŚRODOWISKA
 | Repo | Silnik | Rola |

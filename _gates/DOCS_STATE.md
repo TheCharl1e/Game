@@ -61,6 +61,29 @@
 
 **Podsumowanie DIFF:** 11 hashy ✅ potwierdzonych · 5 hashy przeklasyfikowanych na ❓ (dangling) · 3 pozycje „—" uzupełnione (❓) · 1 status skorygowany (K1). Zero zmyślonych — każdy ❓ ma realny subject z bundle/dangling, ale nie jest w żywym grafie.
 
+## 3e. KONSOLIDACJA HISTORII (2026-07-01, decyzja dyrektora: Opcja LEAN)
+**Topologia wykryta — 3 rozłączne (orphan-disjoint) linie:**
+| Linia | Tip | Commity | Zawiera | Waga |
+|---|---|---|---|---|
+| Bundle (pre-orphan 5.7) | `b4edc36` (refs/heads/master) | 44 | 5× ❓ + strefy/body/sen-ETAP | ~3.1 GB (stary Content w środku) |
+| E:\Game feat (post-orphan) | `ba7ec7c` | 52 | 11× ✅ build (P2P/afford/flee/temp/metabolizm) | lean (Content wykluczony @ `573830d`) |
+| Game_58 (5.8 KANON) | docs | — | migracja/tooling/docs | lean |
+
+**Koszt zmierzony:** Game_58 `.git` = **883 KB**; bundle = **3.1 GB**; E:\Game `.git` = 3.1 GB (trzyma dangling stary Content). Import bundla = ×3500 balon KANON-a, praktycznie nieodwracalny (historia trzymana → `gc --prune` jej nie tnie). **STOP+pytanie** → dyrektor wybrał **LEAN**.
+
+**Wykonano (non-destructive, odwracalne):**
+```
+git -C E:\Game_58 fetch --no-tags E:\Game \
+    refs/heads/feat/l3-05-p2p-slice1:refs/heads/heritage/5.7-active
+```
+- Nowy branch `heritage/5.7-active` (tip `ba7ec7c`, 52 commity). Istniejące branche (`docs/pyramid-C-L-G`, `master`, `feat/bttask-eat-wiring`) NIETKNIĘTE.
+- **Weryfikacja:** 11/11 ✅ build-hashy `git cat-file -e` → reachable w Game_58. 5× ❓ pre-orphan → nadal absent (bundle-only, zgodnie z zamiarem).
+- **Rozmiar po:** `.git` 883 KB → **1.1 MB** (+~200 KB; Content NIE wciągnięty — potwierdza lean linii post-orphan).
+
+**Efekt:** DIFF-finding „0 build-commitów w Game_58" ROZWIĄZANY dla 11× ✅ (teraz w KANON). 5× ❓ pre-orphan pozostają w `E:\Game-history-2026-06-21.bundle` (świadoma decyzja — nie balonować KANON-a 3 GB starego Contentu).
+
+**OPEN (gdyby kiedyś potrzebne 5× ❓ w KANON):** import bundla wymaga akceptacji ~3.1 GB balonu LUB `git filter-repo` do usunięcia Contentu z linii pre-orphan przed importem (osobny gate).
+
 ## 4. GIT
 - Branch: `docs/pyramid-C-L-G` (już był checked-out, nie tworzyłem).
 - Commit **tylko** plików docs (NIE tknąłem untracked C++ `NPCSpawner.*`, `SurvivalPlayerController.*` — poza zakresem bramki).
@@ -70,5 +93,6 @@
 ## 5. BRAMKI / STOP
 - ✅ nie push · ✅ nie dotykałem kodu ani sceny · ✅ nie zmyśliłem commitów (❓ gdy niepewne) · ✅ linkowanie zamiast duplikacji.
 - OPEN dla dyrektora/architekta:
-  1. **Repo-mismatch:** GAME_STATE prezentuje Game_58 jako KANON, ale 0 build-commitów tam jest — cały dowód buildów żyje w E:\Game (5.7) + bundle. Czy skonsolidować historię (import bundle do Game_58) czy zostawić E:\Game jako env-weryfikacyjny?
+  1. ✅ **RESOLVED (Opcja LEAN):** konsolidacja wykonana — `heritage/5.7-active` w Game_58 wnosi 11× ✅ build-commity do KANON (patrz 3e). Bundle (5× ❓ pre-orphan) NIE importowany świadomie (~3.1 GB Content). E:\Game zostaje env-weryfikacyjnym.
   2. **Pragnienie bez commita** — czy istnieje gdzieś (bundle głębiej / lokalne zmiany nietknięte) czy build był przed-git?
+  3. **Push heritage?** — `heritage/5.7-active` jest lokalny w Game_58, NIE pushnięty (bramka). Czy wypchnąć na origin jako trwałe archiwum lineage?
