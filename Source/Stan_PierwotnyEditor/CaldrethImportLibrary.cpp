@@ -438,6 +438,13 @@ AActor* UCaldrethImportLibrary::ImportCaldrethLandscape(
 		TArrayView<const FLandscapeLayer>());  // no landscape edit-layers (single default layer)
 
 	// --- 6. Finalize -----------------------------------------------------------
+	// ALandscape::Import overwrites the actor transform with its own default scale
+	// (observed live: XY x128, Z x256). Re-apply the intended transform AFTER import,
+	// then rebuild the heightfield collision so it matches the final scale — navmesh
+	// bakes off this collision, so without the rebuild it stays stale/misaligned.
+	Landscape->SetActorTransform(FTransform(FQuat::Identity, Location, Scale3D));
+	Landscape->RecreateCollisionComponents();
+
 	ULandscapeInfo* Info = Landscape->CreateLandscapeInfo();
 	if (Info)
 	{

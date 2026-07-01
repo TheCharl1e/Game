@@ -80,6 +80,16 @@ Zmiany (patch, nie regeneracja):
 
 **STOP — twarda bramka rebuild:** editor-moduł zmienił deps → potrzebny **pełny rebuild z ZAMKNIĘTYM edytorem** (Live Coding nie łyknie zmiany Build.cs). Proszę: **zamknij edytor Game_58** → ja odpalam build editor-targetu (UBT) → po zielonym: otwórz ponownie na **CaldrethMap** → wołam `ImportCaldrethLandscape` → read-back max Z → Twój Ctrl+S → navmesh.
 
+## 2 f. (2026-07-01) — LANDSCAPE POSTAWIONY + READ-BACK + 2 bugi złapane
+- **Mapa:** `load_level` NIE zadziałał (świat zostawał `Game`); **`EditorLoadingAndSavingUtils.load_map("/Game/DocelowaGra/CaldrethMap")` zadziałał** → LEVEL=CaldrethMap potwierdzony.
+- **Import:** `ImportCaldrethLandscape("",505,63,1,1000000,175.78,45000)` → `ALandscape "CaldrethLandscape"`, LANDSCAPE_COUNT=1. Heightmapa **weszła** (realny relief).
+- **BUG #1 — skala:** `ALandscape::Import` **nadpisuje transform** własną domyślną skalą: read-back scale=`(253968, 253968, 44999)` = intended ×128 (XY) / ×256 (Z), bounds Z ±11.5M. → **fix C++:** `SetActorTransform` PO `Import`.
+- **READ-BACK po korekcie skali (twarde, realna geometria):** scale `(1984.127,1984.127,175.78)`, **XY span = 1000000×1000000 ✅**, **Z_MIN 0.3 / Z_MAX 89951.6 ✅** (≈0..90000, szczyt ~900m), origin (0,0) — wyśrodkowany. **Heightmapa poprawna.**
+- **BUG #2 — kolizja:** przeskalowanie z Pythona zostawia **nieaktualny heightfield kolizji** → line-trace: center trafia stary Floor (−170), `ne`=116225 (resztka ×256), west/corner **MISS** (brak kolizji). `RecreateCollisionComponents` **nie wystawione do Pythona**. → **fix C++:** `RecreateCollisionComponents()` po `SetActorTransform`.
+- **Status:** żywy Landscape ma poprawną geometrię ale **stalą kolizję** → navmesh na nim = śmieć. **Nie bakeuję.** Poprawki C++ wniesione → potrzebny rebuild + czysty re-import (transform+kolizja od zera).
+
+**STOP — proszę: zamknij edytor BEZ zapisu** (odrzuca zepsuty Landscape) → ja rebuild → otwórz CaldrethMap → czysty re-import (skala+kolizja poprawne od startu) → read-back bounds+trace (wszystkie trafienia) → Twój Ctrl+S → navmesh.
+
 ## 3. NAVMESH + DIAGNOZA CHODLIWOŚCI — STOP (po sekcji 2)
 Plan: `NavMeshBoundsVolume` nad Landscape + `RecastNavMesh` bake → twarde liczby: % chodliwej powierzchni, ile z 18 stref (i ile bSpawnable) na navmeshu, gdzie nav urywa się na stożku wulkanu, agent-max-slope Recast. **Wymaga postawionego Landscape.**
 
