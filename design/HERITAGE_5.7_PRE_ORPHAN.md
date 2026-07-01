@@ -13,10 +13,11 @@
 | **Sen** ETAP2 (mgła/mikrosen/Rested) · ETAP1 (HoursAwake→EFatigueState) | `8326f14` · `a7efcdb` | 2026-06-19 · 06-18 | `MaslowBiologicalComponent.{h,cpp}` ✅ |
 | **NPCRegistry** (int32 ID subsystem + identity component) | `ba9c092` | 2026-06-20 | `NPC/NPCRegistrySubsystem.{h,cpp}` ✅ · `NPC/NPCIdentityComponent.{h,cpp}` ✅ |
 | **OCEAN slice1** (Neuroticism → stochastic L0 panic) | `48e1a73` | 2026-06-20 | `MaslowBiologicalComponent.{h,cpp}` ✅ · `NPC/NPCIdentityComponent.h` ✅ |
-| **Strefy Caldreth** (FZoneDef seed · bake 18 stref · GetZoneAtLocation) | `571956b`·`f0e65d9`·`7d17603` | 2026-06-17 | `Map/CaldrethZone.{h,cpp}` ✅ · `Tools/MapGen/zone_defs.json` ⚠️ (brak w 5.8 — do potwierdzenia) |
+| **Strefy Caldreth** (FZoneDef seed · bake 18 stref · GetZoneAtLocation) | `571956b`·`f0e65d9`·`7d17603` | 2026-06-17 | `Map/CaldrethZone.{h,cpp}` ✅ · `Tools/MapGen/zone_defs.json` ✅ (dodane do 5.8 2026-07-01, 12 biomów) |
 | **Body/senses** (26 części, EBodyPart helper) | `6e91372` + init `e14fa24` | 2026-06-16/12 | (w initial-import; obecne w 5.8) |
 
-> ⚠️ Jedyna wykryta luka plikowa: `Tools/MapGen/zone_defs.json` nieobecny w `E:\Game_58` — reszta źródeł ✅ potwierdzona na dysku 5.8.
+> ✅ Luka zamknięta: `Tools/MapGen/zone_defs.json` skopiowany z E:\Game (byte-identical, tracked) → `E:\Game_58\Tools\MapGen\`. Wszystkie źródła tej ery obecne w 5.8.
+> ⚠️ Reszta toolchainu MapGen (`build_all.py`, `caldreth_mapgen.py`, `caldreth_render.py`) nadal tylko w E:\Game — do decyzji czy migrować (osobno).
 
 ## PEŁNY REJESTR (44 commity, `e14fa24` → `b4edc36`, chronologicznie malejąco)
 Format: `hash | data | temat`. Bloby (Content/Binaries/Plugins) NIE w KANON — tylko w bundlu.

@@ -88,7 +88,7 @@ git -C E:\Game_58 fetch --no-tags E:\Game \
 Dyrektor: „nie chcemy 3.1 GB, chcemy najważniejsze informacje, większość plików i tak jest już w 5.8".
 - **Wykluczono:** import bundla (bloby=3.1 GB) ORAZ `git filter-repo` (przepisuje hashe → traci cytowalność `545a95d` itd.).
 - **Zrobiono:** ekstrakt metadanych z object-DB E:\Game (`git log b4edc36`, 44 commity) → **`design/HERITAGE_5.7_PRE_ORPHAN.md`** — pełny rejestr (hash+data+temat, oryginalne hashe) + mapa 5 kluczowych systemów (głód/temp/sen/registry/OCEAN/strefy) → pliki źródłowe w 5.8. **Zero blobów, KB nie GB.**
-- **Weryfikacja tezy „pliki w 5.8":** `MaslowBiologicalComponent`, `NPCRegistrySubsystem`, `NPCIdentityComponent`, `ZoneDef`, `CaldrethZone`, `AnimNotify_EatBite`, `ItemBase` — ✅ obecne na dysku E:\Game_58. **Jedyna luka:** `Tools/MapGen/zone_defs.json` ⚠️ brak w 5.8 (do potwierdzenia).
+- **Weryfikacja tezy „pliki w 5.8":** `MaslowBiologicalComponent`, `NPCRegistrySubsystem`, `NPCIdentityComponent`, `ZoneDef`, `CaldrethZone`, `AnimNotify_EatBite`, `ItemBase` — ✅ obecne na dysku E:\Game_58. **Luka ZAMKNIĘTA:** `Tools/MapGen/zone_defs.json` skopiowany z E:\Game do `E:\Game_58\Tools\MapGen\` (byte-identical, 12 biomów, tracked, nie-ignored) — 2026-07-01 na prośbę dyrektora. Reszta toolchainu MapGen (`*.py`) nadal tylko w E:\Game (osobna decyzja).
 - Surowe bloby (gdyby kiedyś): `git -C E:\Game show <hash>:<ścieżka>` lub bundle; import do KANON świadomie odrzucony.
 
 ## 4. GIT
