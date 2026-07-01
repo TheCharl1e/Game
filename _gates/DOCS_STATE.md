@@ -84,6 +84,13 @@ git -C E:\Game_58 fetch --no-tags E:\Game \
 
 **OPEN (gdyby kiedyś potrzebne 5× ❓ w KANON):** import bundla wymaga akceptacji ~3.1 GB balonu LUB `git filter-repo` do usunięcia Contentu z linii pre-orphan przed importem (osobny gate).
 
+## 3f. REJESTR PRE-ORPHAN (decyzja dyrektora: NIE 3.1 GB, tylko najważniejsza informacja)
+Dyrektor: „nie chcemy 3.1 GB, chcemy najważniejsze informacje, większość plików i tak jest już w 5.8".
+- **Wykluczono:** import bundla (bloby=3.1 GB) ORAZ `git filter-repo` (przepisuje hashe → traci cytowalność `545a95d` itd.).
+- **Zrobiono:** ekstrakt metadanych z object-DB E:\Game (`git log b4edc36`, 44 commity) → **`design/HERITAGE_5.7_PRE_ORPHAN.md`** — pełny rejestr (hash+data+temat, oryginalne hashe) + mapa 5 kluczowych systemów (głód/temp/sen/registry/OCEAN/strefy) → pliki źródłowe w 5.8. **Zero blobów, KB nie GB.**
+- **Weryfikacja tezy „pliki w 5.8":** `MaslowBiologicalComponent`, `NPCRegistrySubsystem`, `NPCIdentityComponent`, `ZoneDef`, `CaldrethZone`, `AnimNotify_EatBite`, `ItemBase` — ✅ obecne na dysku E:\Game_58. **Jedyna luka:** `Tools/MapGen/zone_defs.json` ⚠️ brak w 5.8 (do potwierdzenia).
+- Surowe bloby (gdyby kiedyś): `git -C E:\Game show <hash>:<ścieżka>` lub bundle; import do KANON świadomie odrzucony.
+
 ## 4. GIT
 - Branch: `docs/pyramid-C-L-G` (już był checked-out, nie tworzyłem).
 - Commit **tylko** plików docs (NIE tknąłem untracked C++ `NPCSpawner.*`, `SurvivalPlayerController.*` — poza zakresem bramki).

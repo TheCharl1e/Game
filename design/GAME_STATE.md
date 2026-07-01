@@ -8,8 +8,10 @@
 > **❓hash** = pre-orphan (clean-start `573830d`), przetrwał tylko w `E:\Game-history-2026-06-21.bundle`.
 > **KONSOLIDACJA (lean):** lean linia post-orphan z E:\Game (52 commity, wszystkie 11× ✅) zaimportowana
 > do **Game_58 jako branch `heritage/5.7-active`** (tip `ba7ec7c`) → **11× ✅ teraz reachable w KANON**
-> (`.git` 883 KB→1.1 MB, Content NIE wciągnięty). 5× ❓ (pre-orphan) świadomie NIE importowane — bundle
-> niesie ~3.1 GB starego Contentu; pozostają zarchiwizowane w bundlu. Pełny DIFF: `_gates/DOCS_STATE.md`.
+> (`.git` 883 KB→1.1 MB, Content NIE wciągnięty). 5× ❓ (pre-orphan) — bloby świadomie NIE importowane
+> (bundle = ~3.1 GB starego Contentu; pliki źródłowe i tak są już w 5.8). Ich **rejestr** (hashe+daty+tematy+mapa
+> do plików 5.8) zachowany w `design/HERITAGE_5.7_PRE_ORPHAN.md`; surowe bloby = zimne archiwum w bundlu.
+> Pełny DIFF: `_gates/DOCS_STATE.md`.
 
 ## ŚRODOWISKA
 | Repo | Silnik | Rola |
