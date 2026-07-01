@@ -204,6 +204,13 @@ protected:
     /** Odśwież CurrentZone, jeśli NPC ruszył > próg lub cache nieważny. Woła GetZoneAtLocation tylko wtedy. */
     void RefreshZoneCache();
 
+    // --- L0 Track A / Slice 1: read-side shelter cache (decision #3) ---
+    /** Strongest Shelter cold-dampen (0..1) covering the NPC, refreshed on the metabolism cadence.
+     *  Consumed ONLY by GetFeltTemperature(). GUARDRAIL: never feeds the ambient→body coupling. */
+    float CurrentShelterColdDampen = 0.f;
+    /** Pull CurrentShelterColdDampen from UWorldAffordanceSubsystem at the owner's location (cadence-rate). */
+    void RefreshShelterCache();
+
     /** Cache wskaźnika zegara świata (BP_DayNightCycle) — ustawiany raz w ResolveAwakeRateFromWorldClock. */
     TWeakObjectPtr<AActor> WorldClock;
     /** Liczy DayNightTempOffset z nasłonecznienia zegara (SunFactor = SunIntensity/MaxSunIntensity). */
@@ -459,6 +466,17 @@ public:
     /** Baza temp z CACHE'owanej strefy (NIE GetZoneAtLocation co tick). Fallback DefaultAmbientTemp poza strefą. */
     UFUNCTION(BlueprintPure, Category = "AI|Maslow|Climate")
     float GetZoneBaseTemp() const;
+
+    /** L0 Track A / Slice 1 (decision #3): FELT ambient temperature for EQS/BT navigation + reporting.
+     *  Read-side wrapper over the SAME AmbientTemp (single source of truth) — a covering Shelter dampens the
+     *  COLD DEFICIT only (ADDITIVE form; Dampen 0 = no shelter = raw ambient, 1 = full shelter = ComfortTempMin):
+     *    Felt = (AmbientTemp >= ComfortTempMin) ? AmbientTemp
+     *         : AmbientTemp + (ComfortTempMin - AmbientTemp) * CurrentShelterColdDampen.
+     *  Warm/neutral ambient returns raw (shelter never cools a warm NPC). GUARDRAIL: NOT wired into the
+     *  ambient→body coupling, GetTempQualityMultiplier(), or the hypothermia/death path — those keep reading
+     *  AmbientTemp. Body-coupling feed is deferred to a future thermo slice. */
+    UFUNCTION(BlueprintPure, Category = "AI|Maslow|Climate")
+    float GetFeltTemperature() const;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Biology|Metabolism")
     float BaseBurnRate;

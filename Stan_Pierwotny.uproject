@@ -22,11 +22,11 @@
 		},
 		{
 			"Name": "LudusAI",
-			"Enabled": true
+			"Enabled": false
 		},
 		{
 			"Name": "VisualStudioTools",
-			"Enabled": true,
+			"Enabled": false,
 			"SupportedTargetPlatforms": [
 				"Win64"
 			],
@@ -50,6 +50,14 @@
 		},
 		{
 			"Name": "DynamicWind",
+			"Enabled": true
+		},
+		{
+			"Name": "Monolith",
+			"Enabled": true
+		},
+		{
+			"Name": "MCPUnreal",
 			"Enabled": true
 		}
 	]

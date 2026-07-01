@@ -11,6 +11,7 @@
 #include "InventoryComponent.h"     // L1-09a: Σ izolacji ubrania (GetTotalEquippedInsulation)
 #include "Temperature/HeatSourceRegistrySubsystem.h" // L1-09b: ogień → lokalny RadiantHeat do AmbientTemp
 #include "Map/CaldrethZone.h"       // AmbientTemp: GetZoneAtLocation + FZoneDef.BaseTemp
+#include "World/WorldAffordanceSubsystem.h" // L0-TA-S1: read-side shelter cold-dampen (GetFeltTemperature)
 #include "NPC/NPCIdentityComponent.h" // L3-02: read Neuroticism for the panic roll
 #include "ItemBase.h"               // APPETITE slice 1: nadgryzienie itemu (Cast<AItemBase> w ConsumeBite)
 
@@ -200,6 +201,7 @@ void UMaslowBiologicalComponent::ProcessMetabolism()
     // ==== AMBIENT TEMP — strefa niesie temperaturę otoczenia (rdzeń strefowy) ====
     // Cache strefy (perf #1): GetZoneAtLocation (TActorIterator) TYLKO po ruchu > próg, nie co tick.
     RefreshZoneCache();
+    RefreshShelterCache();        // L0-TA-S1: read-side shelter cold-dampen cache (feeds GetFeltTemperature ONLY)
     UpdateDayNightTempOffset();   // warstwa doby: DayNightTempOffset z nasłonecznienia zegara świata
     // AmbientTemp = baza strefy (cache) + offset doby (nasłonecznienie zegara — SunFactor).
     AmbientTemp = GetZoneBaseTemp() + DayNightTempOffset;
@@ -526,6 +528,35 @@ float UMaslowBiologicalComponent::GetZoneBaseTemp() const
     return DefaultAmbientTemp;   // poza wszystkimi strefami / nieresolved
 }
 
+void UMaslowBiologicalComponent::RefreshShelterCache()
+{
+    // Read-side only (decision #3): cache the strongest Shelter cold-dampen covering the NPC. Cheap rare
+    // record scan via the affordance spatial hash, on the metabolism cadence — never touches the body coupling.
+    CurrentShelterColdDampen = 0.f;
+    const AActor* Owner = GetOwner();
+    const UWorld* World = GetWorld();
+    if (!IsValid(Owner) || !World) { return; }
+    if (const UWorldAffordanceSubsystem* Affordances = World->GetSubsystem<UWorldAffordanceSubsystem>())
+    {
+        CurrentShelterColdDampen = Affordances->GetShelterColdDampenAt(Owner->GetActorLocation());
+    }
+}
+
+float UMaslowBiologicalComponent::GetFeltTemperature() const
+{
+    // Single source of truth = AmbientTemp. Shelter dampens the COLD DEFICIT only (decision #3).
+    // ADDITIVE form (fixes inverted semantics + unsafe default): Dampen 0 = NO shelter = raw ambient;
+    // Dampen 1 = full shelter = felt pulled to ComfortTempMin. Linear in between.
+    // Warm/neutral ambient (>= ComfortTempMin) is returned raw: shelter NEVER cools a warm NPC ("cold
+    // deficit only" invariant, decision #3). GUARDRAIL: read-side for EQS/BT navigation + reporting; the
+    // locked ambient→body coupling is untouched.
+    if (AmbientTemp >= ComfortTempMin)
+    {
+        return AmbientTemp;
+    }
+    return AmbientTemp + (ComfortTempMin - AmbientTemp) * CurrentShelterColdDampen;
+}
+
 namespace
 {
     // Czyta property typu "real" (double LUB float w UE5) z aktora przez reflection. False gdy brak/niepasujące.
@@ -813,8 +844,14 @@ void UMaslowBiologicalComponent::ConsumeFoodItem(const FFoodItemRow& FoodData)
 // Funkcje pomocnicze dla pasków w UI
 float UMaslowBiologicalComponent::GetHPPercent() const
 {
-    // Zabezpieczenie przed dzieleniem przez zero (choć zakladamy Max = 100)
-    return FMath::Clamp(CurrentHP / 100.0f, 0.0f, 1.0f);
+    // TECH-07: dziel przez CurrentMaxHP (autofagia/odwodnienie OBNIŻA max), NIE przez
+    // literał 100 (=AbsoluteMaxHP) — inaczej wyniszczony NPC przy pełnym aktualnym HP
+    // czyta 0.5. Guard: CurrentMaxHP<=0 -> 0 (martwy / nic do zmierzenia).
+    if (CurrentMaxHP <= 0.0f)
+    {
+        return 0.0f;
+    }
+    return FMath::Clamp(CurrentHP / CurrentMaxHP, 0.0f, 1.0f);
 }
 
 float UMaslowBiologicalComponent::GetHydrationPercent() const

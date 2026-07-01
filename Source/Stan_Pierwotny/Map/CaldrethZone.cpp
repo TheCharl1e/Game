@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"   // TActorIterator
+#include "WorldAffordanceSubsystem.h"   // L0-TA-S1: self-register Shelter affordance for Safe Zones
 
 DEFINE_LOG_CATEGORY(LogCaldreth);
 
@@ -60,6 +61,52 @@ void ACaldrethZone::BeginPlay()
 
 	// Re-resolve at runtime in case the ZoneTable reference was set after construction.
 	ResolveZoneDef();
+
+	// L0-TA-S1: a Safe Zone is an emergent Shelter affordance (decision #3). Self-register one record at
+	// the zone centroid so EQS_FindSafeZone (affordance generator, type Shelter) can find it. The authored
+	// ShelterColdDampenFactor seeds the record's read-side cold-deficit dampen.
+	if (bIsSafeZone)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UWorldAffordanceSubsystem* Affordances = World->GetSubsystem<UWorldAffordanceSubsystem>())
+			{
+				ShelterAffordanceId = Affordances->RegisterAffordanceSimple(
+					EAffordanceType::Shelter, GetActorLocation(), /*Yield*/ 0.f, /*RegenPerHour*/ 0.f,
+					/*Owner*/ this, /*ColdDampenFactor*/ ShelterColdDampenFactor);
+			}
+		}
+	}
+}
+
+void ACaldrethZone::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Fail-safe: a destroyed Safe Zone leaves no ghost Shelter affordance.
+	if (ShelterAffordanceId != INDEX_NONE)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UWorldAffordanceSubsystem* Affordances = World->GetSubsystem<UWorldAffordanceSubsystem>())
+			{
+				Affordances->UnregisterAffordance(ShelterAffordanceId);
+			}
+		}
+		ShelterAffordanceId = INDEX_NONE;
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void ACaldrethZone::RegisterMember(AActor* Member)
+{
+	if (!IsValid(Member)) { return; }
+
+	// Prune stale weak refs, then add (deduped).
+	AssignedMembers.RemoveAll([](const TWeakObjectPtr<AActor>& M) { return !M.IsValid(); });
+	if (!AssignedMembers.ContainsByPredicate([Member](const TWeakObjectPtr<AActor>& M) { return M.Get() == Member; }))
+	{
+		AssignedMembers.Add(Member);
+	}
 }
 
 void ACaldrethZone::ResolveZoneDef()

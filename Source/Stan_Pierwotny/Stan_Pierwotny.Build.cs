@@ -17,6 +17,7 @@ public class Stan_Pierwotny : ModuleRules
 				"Stan_Pierwotny",
 				"Stan_Pierwotny/Map",
 				"Stan_Pierwotny/AI",
+				"Stan_Pierwotny/World",
 				"Stan_Pierwotny/NPC",
 				"Stan_Pierwotny/RTS",
 				"Stan_Pierwotny/TP_ThirdPerson",

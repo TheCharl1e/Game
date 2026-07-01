@@ -187,6 +187,20 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Inventory|Query")
 	bool HasItem(FName ItemID, int32 MinQuantity = 1) const;
 
+	// --- P2P barter helpers (L3-05) ---------------------------------------
+	/** Type of an item by ID (from the DataTable; works even if NOT held). EItemType::None if unknown. */
+	UFUNCTION(BlueprintPure, Category = "Inventory|Query")
+	EItemType GetItemTypeForID(FName ItemID) const;
+
+	/** First HELD item whose definition Type == Type, with quantity >= MinAmount. NAME_None if none.
+	 *  Used by the contract pool to pick what the accepter gives. */
+	UFUNCTION(BlueprintPure, Category = "Inventory|Query")
+	FName FindFirstHeldItemOfType(EItemType Type, int32 MinAmount = 1) const;
+
+	/** First HELD item whose Type != ExcludeType (a "surplus" to offer), quantity >= MinAmount. NAME_None if none. */
+	UFUNCTION(BlueprintPure, Category = "Inventory|Query")
+	FName FindFirstHeldItemNotOfType(EItemType ExcludeType, int32 MinAmount = 1) const;
+
 	/** Weight of everything carried (all compartments + worn gear). */
 	UFUNCTION(BlueprintPure, Category = "Inventory|Query")
 	float GetTotalWeight() const;
