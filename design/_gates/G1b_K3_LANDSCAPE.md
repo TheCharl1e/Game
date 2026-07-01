@@ -15,7 +15,7 @@ Droga A `ALandscape` z heightmap · WorldSizeUU **1000000** (XY) · elevation 1.
 - ✅ Oświetlenie sceny (0→DirLight+SkyLight+SkyAtmosphere)
 
 **DEBTS / OPEN (dla architekta):**
-1. **Landscape z C++ importu NIE renderuje wizualnie** (kolizja OK) — Opcja C dług; Opcja A (manual) renderuje. Wideo olane (decyzja dyrektora).
+1. ✅ **RESOLVED (A2, 2026-07-02):** Landscape z C++ importu **renderuje się** — brakujący krok znaleziony: `Import` nie ustawiał `LandscapeMaterial` ani nie budował material-instance komponentów. Fix w `ImportCaldrethLandscape`: ustaw `LandscapeMaterial` (param, default WorldGridMaterial) PRZED `Import` + `UpdateAllComponentMaterialInstances()` PO. Re-import → widoczna powierzchnia (potwierdzone zrzutem). Pipeline w pełni data-driven (Opcja C spełniona). *Pozostaje kosmetyka: ładny materiał terenu + tuning światła (scena ciemna).*
 2. **Strefy: centroid biomu-pierścienia** ląduje w złym miejscu (Ocean/Beach markery na górze) — importer potrzebuje reprezentatywnego punktu.
 3. **Fine slope-gating nav @ 10km** — nachylenie→koszt L1 zamiast nav-gate (bo coarse nav afordowalny, drobny nie).
 4. Materiał Landscape + water/scena = polish osobno.
