@@ -76,6 +76,7 @@ Zmiany (patch, nie regeneracja):
 - `CaldrethImportLibrary.h/.cpp`: nowa `static AActor* ImportCaldrethLandscape(HeightmapR16Path, SizeVerts=505, SubsectionSizeQuads=63, NumSubsections=1, WorldSizeUU=1000000, ZScale=175.78, ZOffsetUU=45000)`.
   - czyta `.r16` LE uint16 (walidacja bajtów = SizeVerts²×2), waliduje layout (504 % 63 == 0 → 8×8 komponentów), spawn `ALandscape` wyśrodkowany (Loc `(-500000,-500000,+45000)`, Scale `(1984.13,1984.13,175.78)`), `ALandscape::Import` (default edit-layer, bez weightmap), `CreateLandscapeInfo`+`UpdateLayerInfoMap`, log min/max16 + oczekiwane world-Z.
 - **Ryzyko:** pierwszy build — sygnatura `ALandscape::Import` / nagłówek `ELandscapeImportAlphamapType` mogą się różnić w 5.8 → dogram po błędach kompilatora.
+- **BUILD (2026-07-01):** 2 błędy naprawione i **rebuild ZIELONY (exit 0)**: (1) `bCanHaveLayersContent` nie istnieje w 5.8 → usunięte; (2) `ALandscapeProxy::Import` w 5.8 ma **12. param** `TArrayView<const FLandscapeLayer>&` (bez defaultu) → dodany pusty. `Game_58Editor` target zlinkowany.
 
 **STOP — twarda bramka rebuild:** editor-moduł zmienił deps → potrzebny **pełny rebuild z ZAMKNIĘTYM edytorem** (Live Coding nie łyknie zmiany Build.cs). Proszę: **zamknij edytor Game_58** → ja odpalam build editor-targetu (UBT) → po zielonym: otwórz ponownie na **CaldrethMap** → wołam `ImportCaldrethLandscape` → read-back max Z → Twój Ctrl+S → navmesh.
 

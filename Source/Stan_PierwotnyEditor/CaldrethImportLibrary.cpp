@@ -416,7 +416,6 @@ AActor* UCaldrethImportLibrary::ImportCaldrethLandscape(
 		UE_LOG(LogCaldrethImport, Error, TEXT("ImportCaldrethLandscape: failed to spawn ALandscape."));
 		return nullptr;
 	}
-	Landscape->bCanHaveLayersContent = false;
 	Landscape->SetActorLabel(TEXT("CaldrethLandscape"));
 
 	// --- 5. Import height data (single default layer, no weightmaps) -----------
@@ -435,7 +434,8 @@ AActor* UCaldrethImportLibrary::ImportCaldrethLandscape(
 		HeightDataPerLayer,
 		nullptr,
 		MaterialLayerDataPerLayer,
-		ELandscapeImportAlphamapType::Additive);
+		ELandscapeImportAlphamapType::Additive,
+		TArrayView<const FLandscapeLayer>());  // no landscape edit-layers (single default layer)
 
 	// --- 6. Finalize -----------------------------------------------------------
 	ULandscapeInfo* Info = Landscape->CreateLandscapeInfo();
