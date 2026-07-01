@@ -121,10 +121,25 @@ Rebuild zielony → CaldrethMap → usunięto stary Landscape (DELETED_OLD=1) �
 - ⚠️ Drobny (slope-gating) navmesh **niewykonalny przy 10 km** → decyzja: (a) zaakceptować coarse nav + nachylenie jako koszt L1 (nie nav-gate), (b) mniejszy WorldSize, (c) nav invokers (dynamiczny nav wokół NPC).
 - ⚠️ Strefy XY rozjechane z Landscape → re-osadzenie wymaga re-derywacji XY (nie sam Z-drop).
 
+## 4. RE-IMPORT STREF (dyrektor: ze świeżego biome.png) — DONE + KOREKTA diagnozy
+- Usunięto stare 18 stref + 5 POI → `ImportCaldrethZones("",DT_ZoneDefs,1e6)` + `ImportCaldrethPOIs` (Python: `import_caldreth_po_is`, mangling „POIs") → **18 stref + 5 POI**, re-osadzone na terenie (line-trace Z-drop, **0 miss**).
+- **KOREKTA „Finding #2" (była BŁĘDNA):** re-import dał ~identyczne pozycje (Beach 71452→71105, Ocean 33700→33699) → to NIE był inny biome.png. Dane biome↔elevation są **spójne** (jeden `generate(cfg)`).
+- **PRAWDZIWA przyczyna — artefakt centroidu regionu niewypukłego** (lokalny test na npz, Z w UU):
+  | biome | centroid-elev | mean-pixel-elev | n |
+  |---|---|---|---|
+  | Ocean | **71286** | 9466 | 96537 |
+  | Beach | **68998** | 19426 | 21419 |
+  | Savanna | 74669 | 39675 | 20823 |
+  | Grassland | 78033 | 40028 | 8644 |
+  | Caldera | 88205 | 86642 | 808 |
+  Piksele biomów są na dobrych wysokościach (Ocean 95m, Beach 194m≈poziom morza); **centroid pierścienia/pasma wpada w wysoki środek wyspy**. `ImportCaldrethZones` stawia aktor w centroidzie → dla biomów-pierścieni (Ocean/Beach/Savanna) marker ląduje na górze. Kompaktowe (Caldera/AshSlope) OK.
+- **Implikacja:** strefa to REGION (`NormalizedOutline`), więc dla `GetZoneAtLocation` centroid-marker jest kosmetyczny. Jeśli marker ma siadać na swoim biomie → importer potrzebuje **reprezentatywnego punktu** (pole-of-inaccessibility / najbliższy piksel-regionu do centroidu), nie centroidu. = osobny gate (poprawka importera).
+- **UWAGA:** wcześniejsze „7/9 spawnable na nav" mierzyło centroidy (dla pierścieni przesunięte) → nie jest wiarygodną miarą pokrycia biomu; wyspa-poziom **84% chodliwe** stoi.
+
 ## OPEN (decyzja dyrektora)
-1. **Rozdzielczość nav @ 10 km:** akceptujemy coarse (4 m, nachylenie→koszt L1) / zmniejszamy WorldSize / nav invokers?
-2. **Strefy vs Landscape (XY mismatch):** re-import stref ze świeżego `caldreth_biome.png` (spójny z heightmapą) zamiast Z-drop? (osobny gate)
-3. Zapis mapy (nav data + navbounds + config) — Twój Ctrl+S, gdy zdecydujemy kierunek?
+1. **Nav invokers (wybrane):** dynamiczny nav wokół NPC → pozwala na DROBNY cell (bounded area). Wymaga: config (`bGenerateNavigationOnlyAroundNavigationInvokers`, RuntimeGeneration=Dynamic) + `UNavigationInvokerComponent` na NPC + **PIE-verify**. To osobny pod-etap (C++/BP + PIE). Plan gotowy — czekam na „tak" na sekwencję (config → invoker na NPC → PIE).
+2. **Importer stref — reprezentatywny punkt** zamiast centroidu (fix markerów pierścieni)? Osobny gate — robimy?
+3. Zapis mapy (Landscape + strefy-na-terenie; nav-config) — Twój Ctrl+S, gdy zdecydujemy nav-invoker kierunek.
 Plan: `NavMeshBoundsVolume` nad Landscape + `RecastNavMesh` bake → twarde liczby: % chodliwej powierzchni, ile z 18 stref (i ile bSpawnable) na navmeshu, gdzie nav urywa się na stożku wulkanu, agent-max-slope Recast. **Wymaga postawionego Landscape.**
 
 ## 4. RE-OSADZENIE STREF/POI — STOP (po sekcji 2/3)
