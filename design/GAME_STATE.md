@@ -36,6 +36,8 @@
 | P2P barter | ContractPool + Trader na BP_NPC_Character, autonomiczna pętla post→accept→fulfill | ✅`65e1be6` · ✅`a28bd54` · ✅`ba7ec7c` |
 | Afordancje (L0-TA-S1) | WorldAffordanceSubsystem (rejestr+spatial hash+regen+atomic claim+cancel-on-death) + EQS generator + budget | ✅`60282fd` · ✅`0d6c1bf` |
 | Flee/panika | damage-hook→zagrożenie→przerwanie BT→ucieczka (UBTTask_Flee) | ✅`3335fe2` · ✅`826b20e` |
+| **Teren wulkanu (G1b-K3)** | heightmap→`ImportCaldrethLandscape` (C++ data-driven r16→ALandscape 505², real Z 0..89951, kolizja+render); navmesh coarse (84% chodliwe, limit @10km) | ✅`d0b95a1` (A2 render) · `accee9b` |
+| **Nav invokers (G1b-K3)** | dynamiczny nav wokół NPC (`bGenerateNavigationOnlyAroundNavigationInvokers`); spawner+NPC = invokery; **PIE: 50/50 NPC na terenie, 0 misses** | ✅`3a76e79` · `ea5a35d` (spawner root) |
 
 ## 🔨 W TOKU / CZĘŚCIOWE
 - **L0 threat (L0-04):** dziś próg paniki = otrzymana rana. BRAK: wykrywanie DRAPIEŻNIKA przez zmysły/EQS (czeka na percepcję-jako-dane).
@@ -51,7 +53,7 @@
 - **L2+ / L3 (poza P2P/registry) / L4 / L5** — ⬜.
 
 ## 🔴 BLOCKERY
-1. **Strefy bez terenu:** 18 stref to dane wiszące ±370k uu; jedyny chodliwy grunt = podłoga 8000×8000 @ origin. `0/18 stref w navmeshu`. → różnicowanie strefowe (temp/migracja) niemożliwe do G1b. **Następny map-gate.**
+1. **~~Strefy bez terenu~~ — CZĘŚCIOWO ROZWIĄZANE (G1b-K3, 2026-07-02):** teren wulkanu z heightmapy STOI (real Z 0..900m, chodliwy 84% via nav invokers, NPC 50/50 na terenie). POZOSTAJE: (a) **strefy centroid-pierścienia rozjechane z terenem** (Ocean/Beach markery na górze — importer potrzebuje reprezentatywnego punktu); (b) **różnicowanie AmbientTemp per-strefa** na terenie (marznięcie Ocean vs Lava) — jeszcze niespięte; (c) drobny slope-gating nav niewykonalny @10km → nachylenie=koszt L1.
 2. **Content Game_58 gitignored:** scena (spawner postawiony, GameMode, zegar) NIE wchodzi do gita → utrwalenie = ręczny Ctrl+S dyrektora, backup ręczny. Decyzja o wersjonowaniu contentu odłożona.
 3. **Thirst driver martwy** (L1-10, patrz wyżej).
 
